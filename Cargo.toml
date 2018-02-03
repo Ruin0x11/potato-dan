@@ -1,0 +1,25 @@
+[package]
+name = "potato-dan"
+version = "0.1.0"
+authors = ["Ian Pickering <ipickering2@gmail.com>"]
+
+[dependencies]
+glium = "0.20.0"
+image = "0.18.0"
+cgmath = "0.16"
+texture_packer = {version = "0.9.1", git = "https://github.com/Ruin0x11/texture_packer" }
+rusttype = "0.2"
+glob = "0.2"
+
+hlua = "0.4"
+rand = "0.4"
+lazy_static = "1"
+
+bincode = "0.9"
+rust-crypto = "0.2"
+toml = "0.4"
+serde = "1"
+serde_derive = "1"
+
+calx-ecs = "0.6.0"
+#calx-alg = { git = "https://github.com/rsaarelm/calx" }

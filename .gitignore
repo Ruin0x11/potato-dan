@@ -1,0 +1,8 @@
+callgrind*
+.coveralls.yml
+\#*\#
+save/
+target/
+data/.packed
+.DS_Store
+docs/

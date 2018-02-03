@@ -1,0 +1,125 @@
+//#[macro_use]
+extern crate calx_ecs;
+//#[macro_use]
+extern crate hlua;
+//#[macro_use]
+extern crate lazy_static;
+#[macro_use]
+extern crate serde_derive;
+#[macro_use]
+extern crate glium;
+
+extern crate bincode;
+extern crate cgmath;
+extern crate crypto;
+extern crate glob;
+extern crate image;
+extern crate rusttype;
+extern crate serde;
+extern crate texture_packer;
+extern crate toml;
+
+#[macro_use]
+mod macros;
+
+mod engine;
+mod graphics;
+mod renderer;
+mod state;
+mod util;
+mod world;
+
+use glium::glutin::{self, VirtualKeyCode, ElementState};
+use state::GameState;
+use engine::keys::{Key, KeyCode};
+
+pub struct GameContext {
+    pub state: GameState,
+}
+
+impl GameContext {
+    pub fn new() -> Self {
+        GameContext {
+            state: GameState::new(),
+        }
+    }
+}
+
+fn main() {
+    game_loop();
+
+    println!("Exited cleanly.");
+}
+
+fn game_loop() {
+    //renderer::with_mut(|rc| rc.update(&context.state.world));
+    let mut context = GameContext::new();
+
+    'outer: loop {
+        let mut keys = Vec::new();
+        let mut resize = None;
+        let mut quit = false;
+        renderer::with_mut(|rc| {
+            rc.poll_events(|event| match event {
+                glutin::Event::WindowEvent { event, .. } => {
+                    match event {
+                        glutin::WindowEvent::Closed => quit = true,
+                        glutin::WindowEvent::Resized(w, h) => {
+                            resize = Some((w, h));
+                        },
+                        _ => (),
+                    }
+
+                    match event {
+                        glutin::WindowEvent::KeyboardInput { input, .. } => {
+                            if let ElementState::Pressed = input.state {
+                                if let Some(code) = input.virtual_keycode {
+                                    match code {
+                                        VirtualKeyCode::Escape => quit = true,
+                                        _ => {
+                                            let key = Key::from(KeyCode::from(code));
+                                            keys.push(key);
+                                        },
+                                    }
+                                }
+                            }
+                        },
+                        _ => (),
+                    }
+                },
+                _ => (),
+            });
+
+            false
+        });
+
+        if quit {
+            break 'outer;
+        }
+
+        if let Some((w, h)) = resize {
+            renderer::with_mut(|renderer| {
+                renderer.set_viewport(w, h);
+                renderer.update(&context.state.world);
+                renderer.render();
+            });
+        }
+
+        if let Some(key) = keys.first() {
+            // Ensure that the renderer isn't borrowed during the game step, so it can be used in
+            // the middle of any game routine (like querying the player for input)
+            state::game_step(&mut context, Some(*key));
+
+            renderer::with_mut(|renderer| renderer.update(&context.state.world));
+        }
+
+        renderer::with_mut(|renderer| {
+            if let Some((w, h)) = resize {
+                renderer.set_viewport(w, h)
+            }
+
+            renderer.render();
+            renderer.step_frame();
+        });
+    }
+}
