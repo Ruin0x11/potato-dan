@@ -1,4 +1,4 @@
-//#[macro_use]
+#[macro_use]
 extern crate calx_ecs;
 //#[macro_use]
 extern crate hlua;
@@ -14,6 +14,7 @@ extern crate cgmath;
 extern crate crypto;
 extern crate glob;
 extern crate image;
+extern crate rand;
 extern crate rusttype;
 extern crate serde;
 extern crate texture_packer;
@@ -22,8 +23,10 @@ extern crate toml;
 #[macro_use]
 mod macros;
 
+mod ecs;
 mod engine;
 mod graphics;
+mod point;
 mod renderer;
 mod state;
 mod util;
@@ -105,13 +108,11 @@ fn game_loop() {
             });
         }
 
-        if let Some(key) = keys.first() {
-            // Ensure that the renderer isn't borrowed during the game step, so it can be used in
-            // the middle of any game routine (like querying the player for input)
-            state::game_step(&mut context, Some(*key));
+        // Ensure that the renderer isn't borrowed during the game step, so it can be used in
+        // the middle of any game routine (like querying the player for input)
+        state::game_step(&mut context, keys.pop());
 
-            renderer::with_mut(|renderer| renderer.update(&context.state.world));
-        }
+        renderer::with_mut(|renderer| renderer.update(&context.state.world));
 
         renderer::with_mut(|renderer| {
             if let Some((w, h)) = resize {
