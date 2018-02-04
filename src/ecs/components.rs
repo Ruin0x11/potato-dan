@@ -54,6 +54,12 @@ fn none() -> Option<CollisionObjectHandle> {
     None
 }
 
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum PhysicsShape {
+    Chara,
+    Wall,
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Physics {
     pub direction: Direction,
@@ -62,6 +68,7 @@ pub struct Physics {
     pub accel_x: f32,
     pub accel_z: f32,
     pub movement_frames: u32,
+    pub shape: PhysicsShape,
 
     #[serde(skip_serializing)]
     #[serde(skip_deserializing)]
@@ -70,7 +77,7 @@ pub struct Physics {
 }
 
 impl Physics {
-    pub fn new() -> Self {
+    pub fn new(shape: PhysicsShape) -> Self {
         Physics {
             direction: Direction::S,
             dx: 0.0,
@@ -78,6 +85,7 @@ impl Physics {
             accel_x: 0.0,
             accel_z: 0.0,
             movement_frames: 0,
+            shape: shape,
             handle: None,
         }
     }

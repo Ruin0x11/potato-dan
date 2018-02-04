@@ -1,3 +1,5 @@
+#![allow(warnings)]
+
 #[macro_use]
 extern crate calx_ecs;
 //#[macro_use]

@@ -20,13 +20,13 @@ impl GameState {
     pub fn new() -> Self {
         let mut world = World::new();
 
-        for i in 0..10 {
+        for i in 0..30 {
             //world.spawn(prefab::wall(), Point::new(3.0 + (i as f32 * 1.0), 4.0, 0.0));
-            //let x = rand::thread_rng().gen_range(0.0, 10.0);
-            //let y = rand::thread_rng().gen_range(0.0, 10.0);
-            //world.spawn(prefab::mob("Dood"), Point::new(x, y, 0.0));
+            let x = rand::thread_rng().gen_range(0.0, 50.0);
+            let z = rand::thread_rng().gen_range(0.0, 50.0);
+            world.spawn(prefab::mob("Dood"), Point::new(x, 0.0, z));
         }
-        //world.spawn(prefab::wall(), Point::new(3.0, 4.0, 0.0));
+        world.spawn(prefab::wall(), Point::new(3.0, 0.0, -4.0));
         world.spawn(prefab::mob("Dood"), Point::new(0.0, 0.0, 5.0));
 
         GameState {
@@ -119,6 +119,7 @@ fn process(context: &mut GameContext) {
 
         let mut pos = world.ecs_mut().positions.get_mut_or_err(entity);
         pos.x += dx;
+        pos.y = 0.0;
         pos.z += dz;
     }
 }

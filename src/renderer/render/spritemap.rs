@@ -4,6 +4,7 @@ use glium::backend::Facade;
 use point;
 use renderer::atlas::*;
 use renderer::render::{self, Renderable, Viewport, Vertex};
+use renderer::render::viewport::FACTOR;
 
 #[derive(Copy, Clone, Debug)]
 struct Instance {
@@ -160,8 +161,8 @@ fn make_sprites(world: &World, viewport: &Viewport) -> Vec<(DrawSprite, (i32, i3
             }
 
             let pos = world.ecs().positions.get_or_err(*entity);
-            let screen_x = (pos.x * 32.0) as i32;
-            let screen_y = (pos.z * 32.0) as i32;
+            let screen_x = (pos.x * FACTOR) as i32;
+            let screen_y = (pos.z * FACTOR) as i32;
 
             match world.ecs().appearances.get(*entity) {
                 Some(&Appearance::Chara(ref chara)) => {

@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::slice;
 
 use calx_ecs::Entity;
@@ -12,7 +13,7 @@ use point::*;
 use ncollide::world::{CollisionGroups, CollisionObject3, CollisionWorld, GeometricQueryType};
 use nalgebra::{self, Isometry3, Point3, Translation3, Vector3};
 use ncollide::narrow_phase::{ContactAlgorithm3};
-use ncollide::shape::{Ball, Cuboid, Plane, ShapeHandle3};
+use ncollide::shape::{Ball, Ball3, Cuboid, Plane, ShapeHandle3};
 use ncollide::query::{self, Proximity};
 use ncollide::events::{ContactEvents};
 
@@ -22,6 +23,21 @@ pub struct World {
     player: Option<Entity>,
     pub camera: Option<Entity>,
     collision_world: CollisionWorld<Point, Isometry3<f32>, Entity>,
+    shapes: HashMap<PhysicsShape, ShapeHandle3<f32>>,
+}
+
+struct CollisionData {
+    shape: ShapeHandle3<f32>,
+    groups: CollisionGroups,
+}
+
+fn shape_handles() -> HashMap<PhysicsShape, ShapeHandle3<f32>> {
+    let mut map = HashMap::new();
+
+    map.insert(PhysicsShape::Chara, ShapeHandle3::new(Ball::new(1.0)));
+    map.insert(PhysicsShape::Wall, ShapeHandle3::new(Cuboid::new(Vector3::new(0.5, 0.5, 0.5))));
+
+    map
 }
 
 impl World {
@@ -32,6 +48,7 @@ impl World {
             player: None,
             camera: None,
             collision_world: collision_world,
+            shapes: shape_handles(),
         };
 
 
@@ -82,13 +99,18 @@ impl World {
 
         let entity = loadout.make(&mut self.ecs);
 
+
         if self.ecs.physics.contains(entity) {
+            let shape = {
+                let phys = self.ecs.physics.get_or_err(entity);
+                self.shapes.get(&phys.shape).cloned().unwrap()
+            };
             let pos = self.ecs.positions.get_or_err(entity).clone();
             let mut ball_groups = CollisionGroups::new();
             ball_groups.set_membership(&[1]);
             let ball_pos = Isometry3::new(Vector3::new(pos.x, pos.y, pos.z), nalgebra::zero());
             let handle = self.collision_world.add(ball_pos,
-                                                  ShapeHandle3::new(Ball::new(1f32)),
+                                                  shape,
                                                   ball_groups,
                                                   GeometricQueryType::Contacts(0.0, 0.0),
                                                   entity);
@@ -117,6 +139,12 @@ impl World {
     }
 
     pub fn update_physics(&mut self) {
+        self.update_world_to_physics();
+        self.update_collision_world();
+        self.update_physics_to_world();
+    }
+
+    fn update_world_to_physics(&mut self) {
         let mut entities = Vec::new();
         for entity in self.entities() {
             if self.ecs.physics.has(*entity) {
@@ -142,8 +170,13 @@ impl World {
             }
         }
 
-        self.collision_world.update();
+    }
 
+    fn update_collision_world(&mut self) {
+        self.collision_world.update();
+    }
+
+    fn update_physics_to_world(&mut self) {
         for (e1, e2, ca) in self.collision_world.contact_pairs() {
             let mut contacts = Vec::new();
             ca.contacts(&mut contacts);
@@ -153,7 +186,7 @@ impl World {
                     if self.ecs.physics.has(*e1.data()) {
                         if let Some(p1) = self.ecs.positions.get_mut(*e1.data()) {
                             p1.x += move_vec.x;
-                            p1.y += move_vec.y;
+                            p1.z += move_vec.z;
                         }
                     }
                 }
@@ -167,48 +200,6 @@ impl World {
                     }
                 }
             }
-            // if let Some(col) = col.get_mut(e1.data) {
-            //     if !p1.is_empty() {
-            //         println!("e1 contacts {:?}", p1);
-            //     }
-            //     //col.contacts.insert(e2.data, p1);
-            // }
-            // if let Some(col) = col.get_mut(e2.data) {
-            //     if !p2.is_empty() {
-            //         println!("e2 contacts {:?}", p2);
-            //     }
-            //     //col.contacts.insert(e1.data, p2);
-            // }
         }
-
-        //for (co1, co2, ca) in self.collision_world.contact_pairs() {
-        //    {
-        //        println!("{:?} <-> {:?}", co1.position().translation.vector, co2.position().translation.vector);
-
-        //        let ctct_penetrating = query::contact(co1.position(), co1.shape().as_ref(),
-        //                                              co2.position(), co2.shape().as_ref(),
-        //                                              1.0);
-
-        //        let trans = Translation3::from_vector(ctct_penetrating.unwrap().normal);
-        //        let pos = trans * co1.position();
-        //        self.collision_world.set_position(co1.handle(), pos);
-
-        //        let entity = co1.data().entity;
-        //        let mut pos = self.ecs.positions.get_mut_or_err(entity);
-        //        *pos = Point::from_coordinates(co1.position().translation.vector.clone());
-        //    }
-        //}
-
-        //for entity in entities.iter() {
-        //    {
-        //        let handle = self.ecs.physics.get_or_err(*entity).handle;
-        //        let mut pos = self.ecs.positions.get_mut_or_err(*entity);
-        //        if let Some(handle) = handle {
-        //            if let Some(obj) = self.collision_world.collision_object(handle) {
-        //                *pos = Point::from_coordinates(obj.position().translation.vector.clone());
-        //            }
-        //        }
-        //    }
-        //}
     }
 }

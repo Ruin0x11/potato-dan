@@ -11,6 +11,8 @@ pub struct Viewport {
 
 pub type RendererSubarea = ([[f32; 4]; 4], glium::Rect);
 
+pub const FACTOR: f32 = 32.0;
+
 impl Viewport {
     pub fn width(&self) -> u32 {
         self.size.0
@@ -35,7 +37,7 @@ impl Viewport {
 
     pub fn camera(&self, camera: (f32, f32)) -> (i32, i32) {
         let camera: (f32, f32) = camera.into();
-        let camera = ((camera.0 * 32.0) as i32, (camera.1 * 32.0) as i32);
+        let camera = ((camera.0 * FACTOR) as i32, (camera.1 * FACTOR) as i32);
         (camera.0 - (self.width() as i32 / 2), camera.1 - (self.width() as i32 / 2))
     }
 
