@@ -9,6 +9,7 @@ pub mod spritemap;
 pub mod primitives;
 mod viewport;
 
+use point;
 use self::background::Background;
 use self::spritemap::SpriteMap;
 use self::primitives::Primitives;
@@ -153,7 +154,7 @@ impl RenderContext {
             position: (0, 0),
             size: (SCREEN_WIDTH, SCREEN_HEIGHT),
             scale: scale,
-            camera: (0, 0),
+            camera: (0.0, 0.0, 0.0),
         };
 
         RenderContext {
@@ -170,6 +171,8 @@ impl RenderContext {
     }
 
     pub fn update(&mut self, world: &World) {
+        let camera = world.camera_pos().unwrap_or(point::zero());
+        self.viewport.camera = (camera.x, camera.y, camera.z);
         self.spritemap.update(world, &self.viewport);
         self.primitives.update(world, &self.viewport);
     }
@@ -217,6 +220,11 @@ impl RenderContext {
         self.accumulator.step_frame();
 
         thread::sleep(self.accumulator.sleep_time());
+    }
+
+    pub fn reload_shaders(&mut self) {
+        self.primitives.reload_shaders(&self.backend);
+        self.spritemap.reload_shaders(&self.backend);
     }
 }
 

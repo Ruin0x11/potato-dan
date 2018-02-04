@@ -11,6 +11,7 @@ use point::*;
 use calx_ecs::Entity;
 use util;
 use rand::{self, Rng};
+use renderer;
 
 pub struct GameState {
     pub world: World,
@@ -40,6 +41,7 @@ pub enum Command {
     Move(Direction),
     Wait,
     Quit,
+    ReloadShaders,
 }
 
 pub fn get_command(input: &HashMap<KeyCode, bool>) -> Command {
@@ -71,6 +73,11 @@ pub fn get_command(input: &HashMap<KeyCode, bool>) -> Command {
     }
     if l {
         return Command::Move(Direction::E);
+    }
+
+    let r = input.get(&KeyCode::R).map_or(false, |b| *b);
+    if r {
+        return Command::ReloadShaders;
     }
 
     Command::Wait
@@ -160,6 +167,7 @@ pub fn run_command(context: &mut GameContext, command: Command) {
             phys.accel_z = offset.1 as f32 * 0.05;
             phys.movement_frames += 1;
         },
+        Command::ReloadShaders => renderer::with_mut(|rc| rc.reload_shaders()),
         _ => {
             phys.movement_frames = 0;
             phys.accel_x = 0.0;

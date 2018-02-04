@@ -6,7 +6,7 @@ pub struct Viewport {
     pub position: (u32, u32),
     pub size: (u32, u32),
     pub scale: f32,
-    pub camera: (i32, i32),
+    pub camera: (f32, f32, f32),
 }
 
 pub type RendererSubarea = ([[f32; 4]; 4], glium::Rect);
@@ -22,9 +22,9 @@ impl Viewport {
         self.size.1
     }
 
-    pub fn main_window(&self) -> RendererSubarea {
+    pub fn main_window(&self, pixels_per_unit: u32) -> RendererSubarea {
         let (w, h) = self.scaled_size();
-        self.make_subarea((0, 0, w, h))
+        self.make_subarea((0, 0, w, h), pixels_per_unit)
     }
 
     pub fn scaled_size(&self) -> (u32, u32) {
@@ -41,35 +41,19 @@ impl Viewport {
         (camera.0 - (self.width() as i32 / 2), camera.1 - (self.width() as i32 / 2))
     }
 
-    fn make_subarea(&self, area: (u32, u32, u32, u32)) -> RendererSubarea {
-        (self.camera_projection(), self.scissor(area))
+    fn make_subarea(&self, area: (u32, u32, u32, u32), pixels_per_unit: u32) -> RendererSubarea {
+        (self.camera_projection(pixels_per_unit), self.scissor(area))
     }
 
-    pub fn static_projection(&self) -> [[f32; 4]; 4] {
-        self.make_projection_matrix((0, 0))
+    pub fn camera_projection(&self, pixels_per_unit: u32) -> [[f32; 4]; 4] {
+        self.make_projection_matrix(pixels_per_unit, self.camera)
     }
 
-    pub fn camera_projection(&self) -> [[f32; 4]; 4] {
-        self.make_projection_matrix(self.camera)
-    }
-
-    //fn make_projection_matrix(&self, offset: (i32, i32)) -> [[f32; 4]; 4] {
-    //    let (w, h) = (self.size.0 as f32, self.size.1 as f32);
-    //    let (x, y) = (offset.0 as f32, offset.1 as f32);
-
-    //    let left = x;
-    //    let right = x + w;
-    //    let bottom = y + h;
-    //    let top = y;
-
-    //    cgmath::ortho(left, right, bottom, top, -1.0, 1.0).into()
-    //}
-
-    pub fn make_projection_matrix(&self, offset: (i32, i32)) -> [[f32; 4]; 4] {
-        let (x, y) = (self.camera.0 as f32, self.camera.1 as f32);
+    pub fn make_projection_matrix(&self, pixels_per_unit: u32, offset: (f32, f32, f32)) -> [[f32; 4]; 4] {
+        let (x, y) = (offset.0, offset.2);
         let (w, h) = (self.size.0 as f32, self.size.1 as f32);
         let zoom = 1.0;
-        let pixels_per_unit = 1.0;
+        let pixels_per_unit = pixels_per_unit as f32;
 
         let effective_width = w / (zoom * pixels_per_unit);
         let effective_height = h / (zoom * pixels_per_unit);
