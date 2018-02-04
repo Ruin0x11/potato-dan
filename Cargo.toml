@@ -11,6 +11,9 @@ texture_packer = {version = "0.9.1", git = "https://github.com/Ruin0x11/texture_
 rusttype = "0.2"
 glob = "0.2"
 
+nalgebra = { version = "0.14", features = ["serde-serialize"] }
+ncollide = { version = "0.13", git = "https://github.com/Ruin0x11/ncollide" }
+
 hlua = "0.4"
 rand = "0.4"
 lazy_static = "1"

@@ -1,7 +1,7 @@
 use glium;
 use glium::backend::Facade;
 
-use point::POINT_ZERO;
+use point;
 use renderer::atlas::*;
 use renderer::render::{self, Renderable, Viewport, Vertex};
 
@@ -143,9 +143,9 @@ const FACE_COUNT: u32 = 9;
 
 fn make_sprites(world: &World, viewport: &Viewport) -> Vec<(DrawSprite, (i32, i32))> {
     let mut res = Vec::new();
-    let camera = world.camera_pos().unwrap_or(POINT_ZERO);
+    let camera = world.camera_pos().unwrap_or(point::zero());
 
-    let start_corner = viewport.camera((camera.x, camera.y));
+    let start_corner = viewport.camera((camera.x, camera.z));
 
     {
         let mut push_sprite = |variant: u32, pos: (i32, i32), kind: &str| {
@@ -161,7 +161,7 @@ fn make_sprites(world: &World, viewport: &Viewport) -> Vec<(DrawSprite, (i32, i3
 
             let pos = world.ecs().positions.get_or_err(*entity);
             let screen_x = (pos.x * 32.0) as i32;
-            let screen_y = (pos.y * 32.0) as i32;
+            let screen_y = (pos.z * 32.0) as i32;
 
             match world.ecs().appearances.get(*entity) {
                 Some(&Appearance::Chara(ref chara)) => {

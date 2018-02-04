@@ -14,6 +14,8 @@ extern crate cgmath;
 extern crate crypto;
 extern crate glob;
 extern crate image;
+extern crate nalgebra;
+extern crate ncollide;
 extern crate rand;
 extern crate rusttype;
 extern crate serde;

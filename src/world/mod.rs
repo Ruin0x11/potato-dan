@@ -6,24 +6,37 @@ use ecs::prefab;
 use ecs::Loadout;
 use ecs::traits::*;
 use ecs::components::*;
+use point;
 use point::*;
+
+use ncollide::world::{CollisionGroups, CollisionObject3, CollisionWorld, GeometricQueryType};
+use nalgebra::{self, Isometry3, Point3, Translation3, Vector3};
+use ncollide::narrow_phase::{ContactAlgorithm3};
+use ncollide::shape::{Ball, Cuboid, Plane, ShapeHandle3};
+use ncollide::query::{self, Proximity};
+use ncollide::events::{ContactEvents};
+
 
 pub struct World {
     ecs: Ecs,
     player: Option<Entity>,
     pub camera: Option<Entity>,
+    collision_world: CollisionWorld<Point, Isometry3<f32>, Entity>,
 }
 
 impl World {
     pub fn new() -> Self {
+        let mut collision_world = CollisionWorld::new(0.02);
         let mut world = World {
             ecs: Ecs::new(),
             player: None,
             camera: None,
+            collision_world: collision_world,
         };
 
-        let player = world.spawn(prefab::mob("Dood"), Point::new(5.0, 5.0, 0.0));
-        let camera = world.spawn(Loadout::new().c(Camera::new(player)), POINT_ZERO);
+
+        let player = world.spawn(prefab::mob("Dood"), Point::new(0.0, 0.0, 0.0));
+        let camera = world.spawn(Loadout::new().c(Camera::new(player)), point::zero());
 
         world.player = Some(player);
         world.camera = Some(camera);
@@ -38,6 +51,10 @@ impl World {
 
     pub fn entities(&self) -> slice::Iter<Entity> {
         self.ecs.iter()
+    }
+
+    pub fn player(&self) -> Option<Entity> {
+        self.player
     }
 
     pub fn contains(&self, entity: Entity) -> bool {
@@ -65,10 +82,133 @@ impl World {
 
         let entity = loadout.make(&mut self.ecs);
 
+        if self.ecs.physics.contains(entity) {
+            let pos = self.ecs.positions.get_or_err(entity).clone();
+            let mut ball_groups = CollisionGroups::new();
+            ball_groups.set_membership(&[1]);
+            let ball_pos = Isometry3::new(Vector3::new(pos.x, pos.y, pos.z), nalgebra::zero());
+            let handle = self.collision_world.add(ball_pos,
+                                                  ShapeHandle3::new(Ball::new(1f32)),
+                                                  ball_groups,
+                                                  GeometricQueryType::Contacts(0.0, 0.0),
+                                                  entity);
+
+            let mut phys = self.ecs.physics.get_mut_or_err(entity);
+            phys.handle = Some(handle);
+        }
+
         entity
+    }
+
+    pub fn remove(&mut self, entity: Entity) {
+        if self.ecs.physics.contains(entity) {
+            let handle = self.ecs.physics.get_mut_or_err(entity).handle;
+
+            if let Some(handle) = handle {
+                self.collision_world.remove(&[handle]);
+            }
+        }
+
+        self.ecs.remove(entity);
     }
 
     pub fn kill(&mut self, entity: Entity) {
         self.ecs_mut().healths.map_mut(|h| h.kill(), entity);
+    }
+
+    pub fn update_physics(&mut self) {
+        let mut entities = Vec::new();
+        for entity in self.entities() {
+            if self.ecs.physics.has(*entity) {
+                entities.push(*entity);
+            }
+        }
+
+        for entity in entities.iter() {
+            {
+                let pos = self.ecs.positions.get_or_err(*entity);
+                let handle = self.ecs.physics.get_or_err(*entity).handle;
+                if let Some(handle) = handle {
+                    //println!("{:?}", pos.translation.vector);
+                    if self.collision_world.collision_object(handle).is_none() {
+                        // This should happen exactly once for each object when it is first created.
+                        // `CreateObjectSys` has added the object, but the collision world has
+                        // not been updated yet, so changing the position here would be an error.
+                        continue;
+                    }
+                    let pos = Isometry3::new(Vector3::new(pos.x, pos.y, pos.z), nalgebra::zero());
+                    self.collision_world.set_position(handle, pos);
+                }
+            }
+        }
+
+        self.collision_world.update();
+
+        for (e1, e2, ca) in self.collision_world.contact_pairs() {
+            let mut contacts = Vec::new();
+            ca.contacts(&mut contacts);
+            for contact in contacts {
+                let mut move_vec = contact.normal.unwrap() * contact.depth * -0.5;
+                {
+                    if self.ecs.physics.has(*e1.data()) {
+                        if let Some(p1) = self.ecs.positions.get_mut(*e1.data()) {
+                            p1.x += move_vec.x;
+                            p1.y += move_vec.y;
+                        }
+                    }
+                }
+                move_vec *= -1.0;
+                {
+                    if self.ecs.physics.has(*e2.data()) {
+                        if let Some(p2) = self.ecs.positions.get_mut(*e2.data()) {
+                            p2.x += move_vec.x;
+                            p2.z += move_vec.z;
+                        }
+                    }
+                }
+            }
+            // if let Some(col) = col.get_mut(e1.data) {
+            //     if !p1.is_empty() {
+            //         println!("e1 contacts {:?}", p1);
+            //     }
+            //     //col.contacts.insert(e2.data, p1);
+            // }
+            // if let Some(col) = col.get_mut(e2.data) {
+            //     if !p2.is_empty() {
+            //         println!("e2 contacts {:?}", p2);
+            //     }
+            //     //col.contacts.insert(e1.data, p2);
+            // }
+        }
+
+        //for (co1, co2, ca) in self.collision_world.contact_pairs() {
+        //    {
+        //        println!("{:?} <-> {:?}", co1.position().translation.vector, co2.position().translation.vector);
+
+        //        let ctct_penetrating = query::contact(co1.position(), co1.shape().as_ref(),
+        //                                              co2.position(), co2.shape().as_ref(),
+        //                                              1.0);
+
+        //        let trans = Translation3::from_vector(ctct_penetrating.unwrap().normal);
+        //        let pos = trans * co1.position();
+        //        self.collision_world.set_position(co1.handle(), pos);
+
+        //        let entity = co1.data().entity;
+        //        let mut pos = self.ecs.positions.get_mut_or_err(entity);
+        //        *pos = Point::from_coordinates(co1.position().translation.vector.clone());
+        //    }
+        //}
+
+        //for entity in entities.iter() {
+        //    {
+        //        let handle = self.ecs.physics.get_or_err(*entity).handle;
+        //        let mut pos = self.ecs.positions.get_mut_or_err(*entity);
+        //        if let Some(handle) = handle {
+        //            if let Some(obj) = self.collision_world.collision_object(handle) {
+        //                *pos = Point::from_coordinates(obj.position().translation.vector.clone());
+        //            }
+        //        }
+        //    }
+        //}
     }
 }

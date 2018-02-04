@@ -5,6 +5,8 @@ use ecs::traits::*;
 use point::*;
 use world::World;
 
+use ncollide::world::CollisionObjectHandle;
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Name {
     pub name: String,
@@ -48,14 +50,23 @@ impl Health {
     }
 }
 
+fn none() -> Option<CollisionObjectHandle> {
+    None
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Physics {
     pub direction: Direction,
     pub dx: f32,
-    pub dy: f32,
+    pub dz: f32,
     pub accel_x: f32,
-    pub accel_y: f32,
+    pub accel_z: f32,
     pub movement_frames: u32,
+
+    #[serde(skip_serializing)]
+    #[serde(skip_deserializing)]
+    #[serde(default = "none")]
+    pub handle: Option<CollisionObjectHandle>,
 }
 
 impl Physics {
@@ -63,10 +74,11 @@ impl Physics {
         Physics {
             direction: Direction::S,
             dx: 0.0,
-            dy: 0.0,
+            dz: 0.0,
             accel_x: 0.0,
-            accel_y: 0.0,
+            accel_z: 0.0,
             movement_frames: 0,
+            handle: None,
         }
     }
 }

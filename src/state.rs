@@ -21,11 +21,13 @@ impl GameState {
         let mut world = World::new();
 
         for i in 0..10 {
-            world.spawn(prefab::wall(), Point::new(3.0 + (i as f32 * 1.0), 4.0, 0.0));
-            let x = rand::thread_rng().gen_range(0.0, 10.0);
-            let y = rand::thread_rng().gen_range(0.0, 10.0);
-            world.spawn(prefab::mob("Dood"), Point::new(x, y, 0.0));
+            //world.spawn(prefab::wall(), Point::new(3.0 + (i as f32 * 1.0), 4.0, 0.0));
+            //let x = rand::thread_rng().gen_range(0.0, 10.0);
+            //let y = rand::thread_rng().gen_range(0.0, 10.0);
+            //world.spawn(prefab::mob("Dood"), Point::new(x, y, 0.0));
         }
+        //world.spawn(prefab::wall(), Point::new(3.0, 4.0, 0.0));
+        world.spawn(prefab::mob("Dood"), Point::new(0.0, 0.0, 5.0));
 
         GameState {
             world: world,
@@ -83,6 +85,7 @@ pub fn game_step(context: &mut GameContext, input: &HashMap<KeyCode, bool>) {
 
 fn process(context: &mut GameContext) {
     update_camera(context);
+    context.state.world.update_physics();
 
     let world = &mut context.state.world;
     let mut objects = Vec::new();
@@ -94,29 +97,29 @@ fn process(context: &mut GameContext) {
 
     for entity in objects {
         let mut dx;
-        let mut dy;
+        let mut dz;
         {
             let mut phys = world.ecs_mut().physics.get_mut_or_err(entity);
             phys.dx += phys.accel_x;
-            phys.dy += phys.accel_y;
+            phys.dz += phys.accel_z;
             phys.dx = util::clamp(phys.dx, -0.1, 0.1);
-            phys.dy = util::clamp(phys.dy, -0.1, 0.1);
+            phys.dz = util::clamp(phys.dz, -0.1, 0.1);
             dx = phys.dx;
-            dy = phys.dy;
+            dz = phys.dz;
             phys.dx *= 0.8;
-            phys.dy *= 0.8;
+            phys.dz *= 0.8;
 
             if phys.dx.abs() < 0.01 {
                 phys.dx = 0.0;
             }
-            if phys.dy.abs() < 0.01 {
-                phys.dy = 0.0;
+            if phys.dz.abs() < 0.01 {
+                phys.dz = 0.0;
             }
         }
 
         let mut pos = world.ecs_mut().positions.get_mut_or_err(entity);
         pos.x += dx;
-        pos.y += dy;
+        pos.z += dz;
     }
 }
 
@@ -145,22 +148,21 @@ pub fn run_command(context: &mut GameContext, command: Command) {
         }
     }
 
-    for entity in charas {
-        let phys = context.state.world.ecs_mut().physics.get_mut_or_err(entity);
+    let player = context.state.world.player().unwrap();
+    let mut phys = context.state.world.ecs_mut().physics.get_mut_or_err(player);
 
-        match command {
-            Command::Move(dir) => {
-                let offset = dir.to_movement_offset();
-                phys.direction = dir;
-                phys.accel_x = offset.0 as f32 * 0.05;
-                phys.accel_y = offset.1 as f32 * 0.05;
-                phys.movement_frames += 1;
-            },
-            _ => {
-                phys.movement_frames = 0;
-                phys.accel_x = 0.0;
-                phys.accel_y = 0.0;
-            }
+    match command {
+        Command::Move(dir) => {
+            let offset = dir.to_movement_offset();
+            phys.direction = dir;
+            phys.accel_x = offset.0 as f32 * 0.05;
+            phys.accel_z = offset.1 as f32 * 0.05;
+            phys.movement_frames += 1;
+        },
+        _ => {
+            phys.movement_frames = 0;
+            phys.accel_x = 0.0;
+            phys.accel_z = 0.0;
         }
     }
 }

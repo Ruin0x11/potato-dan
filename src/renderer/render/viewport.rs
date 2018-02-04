@@ -1,7 +1,5 @@
 use cgmath;
 use glium;
-use renderer::render::{SCREEN_WIDTH, SCREEN_HEIGHT};
-use util;
 
 #[derive(Debug)]
 pub struct Viewport {
