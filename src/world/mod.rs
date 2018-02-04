@@ -1,7 +1,6 @@
 use std::slice;
 
 use calx_ecs::Entity;
-use ecs;
 use ecs::*;
 use ecs::traits::*;
 use point::Point;
@@ -34,7 +33,7 @@ impl World {
     }
 
     pub fn spawn(&mut self, mut loadout: Loadout, pos: Point) -> Entity {
-        loadout = loadout.c(ecs::components::Position::new(pos));
+        loadout = loadout.c(pos);
 
         let entity = loadout.make(&mut self.ecs);
 

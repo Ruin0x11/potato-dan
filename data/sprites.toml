@@ -19,6 +19,9 @@ name="chara7.png"
 [[maps]]
 name="chara8.png"
 
+[[maps]]
+name="objects.png"
+
 [[tiles]]
 name="body"
 map="chara2.png"
@@ -29,7 +32,7 @@ size=[32, 48]
 [[tiles]]
 name="feet"
 map="chara2.png"
-offset=[0, 390]
+offset=[0, 384]
 count=[7, 8]
 size=[32, 16]
 
@@ -68,10 +71,16 @@ offset=[0, 0]
 count=[7, 8]
 size=[32, 48]
 
-
 [[tiles]]
 name="tail"
 map="chara8.png"
 offset=[0, 0]
 count=[10, 8]
 size=[64, 32]
+
+[[tiles]]
+name="wall"
+map="objects.png"
+offset=[544, 64]
+count=[3, 5]
+size=[32, 96]

@@ -129,6 +129,7 @@ impl<'a> Renderable for SpriteMap {
 use renderer::RenderUpdate;
 use world::World;
 use ecs::traits::ComponentQuery;
+use ecs::components::Appearance;
 use point::Direction;
 
 const TAIL_COUNT: u32 = 10;
@@ -149,25 +150,29 @@ fn make_sprites(world: &World, _viewport: &Viewport) -> Vec<(DrawSprite, (i32, i
         };
 
         for entity in world.entities() {
-            if world.ecs().positions.has(*entity) &&
-                world.ecs().charas.has(*entity) {
-                    let pos = world.ecs().positions.get_or_err(*entity);
-                    let chara = world.ecs().charas.get_or_err(*entity);
-                    let tail_occluded = pos.direction != Direction::N &&
-                        pos.direction != Direction::NE &&
-                        pos.direction != Direction::NW;
-                    let ord = pos.direction.ordinal() as u32;
+            if !world.ecs().positions.has(*entity) {
+                continue;
+            }
 
-                    let screen_x = (pos.pos.x * 10.0) as i32;
-                    let screen_y = (pos.pos.y * 10.0) as i32;
+            let pos = world.ecs().positions.get_or_err(*entity);
+            let screen_x = (pos.x * 32.0) as i32;
+            let screen_y = (pos.y * 32.0) as i32;
 
-                    let tail_kind = chara.tail_kind + ord * TAIL_COUNT;
-                    let body_kind = chara.body_kind + ord * BODY_COUNT;
-                    let mut feet_kind = chara.feet_kind + ord * FEET_COUNT;
-                    let jacket_kind = chara.jacket_kind + ord * JACKET_COUNT;
-                    let hair_kind = chara.hair_kind + ord * HAIR_COUNT;
-                    let ear_kind = chara.ear_kind + ord * EAR_COUNT;
-                    let face_kind = chara.face_kind + ord * FACE_COUNT;
+            match world.ecs().appearances.get(*entity) {
+                Some(&Appearance::Chara(ref chara)) => {
+                    let phys = world.ecs().physics.get_or_err(*entity);
+                    let tail_occluded = phys.direction != Direction::N &&
+                        phys.direction != Direction::NE &&
+                        phys.direction != Direction::NW;
+                    let ord = phys.direction.ordinal() as u32;
+
+                    let tail_kind = (chara.tail_kind % TAIL_COUNT) + ord * TAIL_COUNT;
+                    let body_kind = (chara.body_kind % BODY_COUNT) + ord * BODY_COUNT;
+                    let mut feet_kind = (chara.feet_kind % FEET_COUNT) + ord * FEET_COUNT;
+                    let jacket_kind = (chara.jacket_kind % JACKET_COUNT) + ord * JACKET_COUNT;
+                    let hair_kind = (chara.hair_kind % HAIR_COUNT) + ord * HAIR_COUNT;
+                    let ear_kind = (chara.ear_kind % EAR_COUNT) + ord * EAR_COUNT;
+                    let face_kind = (chara.face_kind % FACE_COUNT) + ord * FACE_COUNT;
 
                     if tail_occluded {
                         push_sprite(tail_kind, (screen_x, screen_y + 10), "tail");
@@ -176,10 +181,10 @@ fn make_sprites(world: &World, _viewport: &Viewport) -> Vec<(DrawSprite, (i32, i
                     push_sprite(body_kind, (screen_x, screen_y), "body");
 
                     // TODO: move to movement logic
-                    if pos.movement_frames != 0 {
-                        feet_kind += ((pos.movement_frames / 5) % 6) + 1;
+                    if phys.movement_frames != 0 {
+                        feet_kind += ((phys.movement_frames / 5) % 6) + 1;
                     }
-                    push_sprite(feet_kind, (screen_x, screen_y + 22), "feet");
+                    push_sprite(feet_kind, (screen_x, screen_y + 16), "feet");
                     push_sprite(jacket_kind, (screen_x, screen_y - 6), "jacket");
                     push_sprite(hair_kind, (screen_x, screen_y), "hair");
                     push_sprite(chara.helmet_kind, (screen_x, screen_y - 10), "helmet");
@@ -189,7 +194,12 @@ fn make_sprites(world: &World, _viewport: &Viewport) -> Vec<(DrawSprite, (i32, i
                     if !tail_occluded {
                         push_sprite(tail_kind, (screen_x, screen_y + 10), "tail");
                     }
-                }
+                },
+                Some(&Appearance::Object(ref object)) => {
+                    push_sprite(object.variant, (screen_x, screen_y + 10), &object.kind);
+                },
+                _ => (),
+            }
         }
     }
 

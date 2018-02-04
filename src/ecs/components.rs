@@ -1,4 +1,5 @@
 use point::*;
+use rand::{self, Rng};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Name {
@@ -44,8 +45,7 @@ impl Health {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Position {
-    pub pos: Point,
+pub struct Physics {
     pub direction: Direction,
     pub dx: f32,
     pub dy: f32,
@@ -54,10 +54,9 @@ pub struct Position {
     pub movement_frames: u32,
 }
 
-impl Position {
-    pub fn new(pos: Point) -> Self {
-        Position {
-            pos: pos,
+impl Physics {
+    pub fn new() -> Self {
+        Physics {
             direction: Direction::S,
             dx: 0.0,
             dy: 0.0,
@@ -69,7 +68,16 @@ impl Position {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Chara {
+pub struct Camera {
+    base: bool,
+}
+
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Chara;
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct CharaAppearance {
     pub body_kind: u32,
     pub feet_kind: u32,
     pub jacket_kind: u32,
@@ -81,9 +89,9 @@ pub struct Chara {
     pub face_kind: u32
 }
 
-impl Chara {
+impl CharaAppearance {
     pub fn new() -> Self {
-        Chara {
+        CharaAppearance {
             body_kind: 6,
             feet_kind: 0,
             jacket_kind: 2,
@@ -95,19 +103,49 @@ impl Chara {
             face_kind: 5,
         }
     }
+    pub fn new_random() -> Self {
+        let mut rng = rand::thread_rng();
+        CharaAppearance {
+            body_kind: rng.next_u32(),
+            feet_kind: 0,
+            jacket_kind: rng.next_u32(),
+            hair_kind: rng.next_u32(),
+            helmet_kind: rng.next_u32(),
+            ear_kind: rng.next_u32(),
+            tail_kind: rng.next_u32(),
+
+            face_kind: rng.next_u32(),
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Appearance {
-    kind: String,
-    variant: u32,
+pub struct ObjectAppearance {
+    pub kind: String,
+    pub variant: u32,
 }
 
-impl Appearance {
+impl ObjectAppearance {
     pub fn new(kind: &str, variant: u32) -> Self {
-        Appearance {
+        ObjectAppearance {
             kind: kind.to_string(),
             variant: variant
         }
+    }
+ }
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum Appearance {
+    Chara(CharaAppearance),
+    Object(ObjectAppearance),
+}
+
+impl Appearance {
+    pub fn new_chara() -> Self {
+        Appearance::Chara(CharaAppearance::new_random())
+    }
+
+    pub fn new(kind: &str, variant: u32) -> Self {
+        Appearance::Object(ObjectAppearance::new(kind, variant))
     }
 }
