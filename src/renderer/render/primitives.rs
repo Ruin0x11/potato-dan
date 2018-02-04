@@ -8,15 +8,14 @@ use renderer::render::viewport::FACTOR;
 
 #[derive(Copy, Clone, Debug)]
 struct Instance {
-    offset: [i32; 3],
+    offset: [f32; 3],
     scale: [f32; 3],
 }
 
 implement_vertex!(Instance, offset, scale);
 
 pub struct Primitives {
-    pos: (i32, i32),
-    sprites: Vec<(DrawPrimitive, (i32, i32))>,
+    prims: Vec<DrawPrimitive>,
 
     indices: glium::IndexBuffer<u16>,
     vertices: glium::VertexBuffer<Vertex3>,
@@ -25,7 +24,8 @@ pub struct Primitives {
 }
 
 struct DrawPrimitive {
-    i: i32,
+    pos: (f32, f32, f32),
+    scale: (f32, f32, f32),
 }
 
 use rand::{self, Rng};
@@ -36,8 +36,7 @@ impl Primitives {
         let program = render::load_program(display, "cube.vert", "cube.frag").unwrap();
 
         let mut primitives = Primitives {
-            pos: (0, 0),
-            sprites: Vec::new(),
+            prims: Vec::new(),
             indices: indices,
             vertices: vertices,
             instances: Vec::new(),
@@ -48,16 +47,25 @@ impl Primitives {
         primitives
     }
 
+    pub fn reload_shaders<F: Facade>(&mut self, display: &F) {
+        match render::load_program(display, "cube.vert", "cube.frag") {
+            Ok(program) => self.program = program,
+            Err(e) => println!("Shader error: {:?}", e),
+        }
+    }
+
     fn make_instances<F>(&mut self, display: &F)
         where F: glium::backend::Facade {
 
         let mut instances = Vec::new();
 
         let mut v = Vec::new();
-        v.push(Instance {
-            offset: [self.pos.0, 0, self.pos.1],
-            scale: [32.0, 32.0, 32.0]
-        });
+        for p in self.prims.iter() {
+            v.push(Instance {
+                offset: [p.pos.0, p.pos.2, p.pos.1],
+                scale: [p.scale.0, p.scale.2, p.scale.1],
+            });
+        }
         instances.push(glium::VertexBuffer::dynamic(display, &v).unwrap());
 
         self.instances = instances;
@@ -68,10 +76,10 @@ impl<'a> Renderable for Primitives {
     fn render<F, S>(&self, _display: &F, target: &mut S, viewport: &Viewport, time: u64)
         where F: glium::backend::Facade, S: glium::Surface {
 
-        let (proj, scissor) = viewport.main_window();
+        let (proj, scissor) = viewport.main_window(32);
 
         let uniforms = uniform! {
-            matrix: viewport.make_projection_matrix((0, 0)),
+            matrix: proj,
             time: time as u32,
         };
 
@@ -102,11 +110,22 @@ impl RenderUpdate for Primitives {
     }
 
     fn update(&mut self, world: &World, viewport: &Viewport) {
-        let camera = world.camera_pos().unwrap_or(point::zero());
-        let start_corner = viewport.camera((camera.x, camera.z));
-        let pos = ((camera.x * FACTOR) as i32, (camera.z * FACTOR) as i32);
+        let mut prims = Vec::new();
+        for entity in world.entities() {
+            if world.ecs().physics.has(*entity) {
+                let pos = world.ecs().positions.get_or_err(*entity);
+                prims.push(DrawPrimitive {
+                    pos: (pos.x, pos.y, pos.z),
+                    scale: (1.0, 1.0, 1.0),
+                });
+            }
+        }
 
-        self.pos = pos;
+        prims.push(DrawPrimitive {
+            pos: (0.0, -0.5, 0.0),
+            scale: (64.0, 0.5, 64.0),
+        });
+        self.prims = prims;
     }
 
     fn redraw<F: Facade>(&mut self, display: &F, _msecs: u64) {
