@@ -17,7 +17,7 @@ pub struct GameState {
 impl GameState {
     pub fn new() -> Self {
         let mut world = World::new();
-        let player = world.spawn(prefab::mob("Dood"), Point::new(0.0, 0.0, 0.0));
+        let player = world.spawn(prefab::mob("Dood"), Point::new(50.0, 50.0, 0.0));
         GameState {
             world: world,
             player: player,
@@ -75,15 +75,14 @@ pub fn game_step(context: &mut GameContext, input: &HashMap<KeyCode, bool>) {
 
 fn process(context: &mut GameContext) {
     let world = &mut context.state.world;
-    let mut charas = Vec::new();
+    let mut objects = Vec::new();
     for entity in world.entities() {
-        if world.ecs().positions.has(*entity) &&
-            world.ecs().appearances.has(*entity) {
-                charas.push(*entity);
-            }
+        if world.ecs().positions.has(*entity) {
+            objects.push(*entity);
+        }
     }
 
-    for entity in charas {
+    for entity in objects {
         let mut pos = world.ecs_mut().positions.get_mut_or_err(entity);
         pos.dx += pos.accel_x;
         pos.dy += pos.accel_y;

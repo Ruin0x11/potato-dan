@@ -69,13 +69,45 @@ impl Position {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Chara {
+    pub body_kind: u32,
+    pub feet_kind: u32,
+    pub jacket_kind: u32,
+    pub hair_kind: u32,
+    pub helmet_kind: u32,
+    pub ear_kind: u32,
+    pub tail_kind: u32,
+
+    pub face_kind: u32
+}
+
+impl Chara {
+    pub fn new() -> Self {
+        Chara {
+            body_kind: 6,
+            feet_kind: 0,
+            jacket_kind: 2,
+            hair_kind: 16,
+            helmet_kind: 1,
+            ear_kind: 1,
+            tail_kind: 1,
+
+            face_kind: 5,
+        }
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Appearance {
+    kind: String,
+    variant: u32,
 }
 
 impl Appearance {
-    pub fn new() -> Self {
+    pub fn new(kind: &str, variant: u32) -> Self {
         Appearance {
-            
+            kind: kind.to_string(),
+            variant: variant
         }
     }
 }

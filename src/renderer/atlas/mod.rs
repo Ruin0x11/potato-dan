@@ -253,8 +253,10 @@ impl TileAtlas {
             let (frame_w, frame_h) = self.frame_size(frame);
 
             for (_, tile) in frame.offsets.iter() {
-                let tx = tile.data.offset.0 as f32 / frame_w as f32;
-                let ty = tile.data.offset.1 as f32 / frame_h as f32;
+                let add_offset = (frame.rect.x, frame.rect.y);
+
+                let tx = (tile.data.offset.0 + add_offset.0) as f32 / frame_w as f32;
+                let ty = (tile.data.offset.1 + add_offset.1) as f32 / frame_h as f32;
 
                 let tw = tile.data.size.0 as f32 / frame_w as f32;
                 let th = tile.data.size.1 as f32 / frame_h as f32;

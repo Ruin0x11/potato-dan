@@ -3,7 +3,7 @@
 in uvec2 position;
 
 in vec2 tex_offset;
-in uvec2 map_coord;
+in vec2 map_coord;
 in vec2 tex_ratio;
 in uvec2 sprite_size;
 

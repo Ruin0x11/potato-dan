@@ -1,8 +1,26 @@
 [[maps]]
 name="chara2.png"
 
+[[maps]]
+name="chara3.png"
+
+[[maps]]
+name="chara4.png"
+
+[[maps]]
+name="chara5.png"
+
+[[maps]]
+name="chara6.png"
+
+[[maps]]
+name="chara7.png"
+
+[[maps]]
+name="chara8.png"
+
 [[tiles]]
-name="chara"
+name="body"
 map="chara2.png"
 offset=[0, 0]
 count=[10, 8]
@@ -14,3 +32,46 @@ map="chara2.png"
 offset=[0, 390]
 count=[7, 8]
 size=[32, 16]
+
+[[tiles]]
+name="hair"
+map="chara3.png"
+offset=[0, 0]
+count=[28, 8]
+size=[48, 48]
+
+[[tiles]]
+name="helmet"
+map="chara4.png"
+offset=[0, 0]
+count=[5, 1]
+size=[48, 48]
+
+[[tiles]]
+name="face"
+map="chara5.png"
+offset=[0, 0]
+count=[9, 8]
+size=[32, 32]
+
+[[tiles]]
+name="ears"
+map="chara6.png"
+offset=[0, 0]
+count=[10, 8]
+size=[48, 48]
+
+[[tiles]]
+name="jacket"
+map="chara7.png"
+offset=[0, 0]
+count=[7, 8]
+size=[32, 48]
+
+
+[[tiles]]
+name="tail"
+map="chara8.png"
+offset=[0, 0]
+count=[10, 8]
+size=[64, 32]
