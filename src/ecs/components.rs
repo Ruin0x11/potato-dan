@@ -46,7 +46,12 @@ impl Health {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Position {
     pub pos: Point,
-    pub direction: Direction
+    pub direction: Direction,
+    pub dx: f32,
+    pub dy: f32,
+    pub accel_x: f32,
+    pub accel_y: f32,
+    pub movement_frames: u32,
 }
 
 impl Position {
@@ -54,6 +59,11 @@ impl Position {
         Position {
             pos: pos,
             direction: Direction::S,
+            dx: 0.0,
+            dy: 0.0,
+            accel_x: 0.0,
+            accel_y: 0.0,
+            movement_frames: 0,
         }
     }
 }

@@ -1,11 +1,10 @@
 mod atlas;
 mod render;
 mod util;
-
-mod interop;
+mod traits;
 
 pub use self::render::{RenderContext};
-pub use self::interop::RenderUpdate;
+pub use self::traits::RenderUpdate;
 
 make_global!(RENDERER, RenderContext, RenderContext::new());
 

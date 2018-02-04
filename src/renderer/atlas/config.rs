@@ -26,9 +26,14 @@ pub fn get_config_cache_path(config_name: &str) -> PathBuf {
     PathBuf::from(&cache_filepath_str)
 }
 
-pub fn load_tile_atlas_config(config_name: &str) -> TileAtlasConfig {
+pub fn get_config_cache_file(config_name: &str) -> PathBuf {
     let mut path = get_config_cache_path(config_name);
     path.push("cache.bin");
+    path
+}
+
+pub fn load_tile_atlas_config(config_name: &str) -> TileAtlasConfig {
+    let path = get_config_cache_file(config_name);
 
     let mut file = File::open(path).unwrap();
     let mut buf = Vec::new();
@@ -37,8 +42,7 @@ pub fn load_tile_atlas_config(config_name: &str) -> TileAtlasConfig {
 }
 
 pub fn write_tile_atlas_config(config: &TileAtlasConfig, config_name: &str) {
-    let mut path = get_config_cache_path(config_name);
-    path.push("cache.bin");
+    let path = get_config_cache_file(config_name);
 
     let data = bincode::serialize(config, bincode::Infinite).unwrap();
     let mut file = File::create(path).unwrap();
@@ -56,8 +60,7 @@ impl TileAtlas {
         let toml_str = util::toml::toml_string_from_file(filename);
 
         let packed_folder = Path::new(filename).file_stem().unwrap().to_str().unwrap();
-        let mut cache_filepath = get_config_cache_path(packed_folder);
-        cache_filepath.push("cache.bin");
+        let cache_filepath = get_config_cache_file(packed_folder);
 
         if !Path::exists(cache_filepath.as_path()) {
             return TileAtlas::build_from_toml(display, packed_folder, &toml_str);
@@ -107,10 +110,9 @@ impl TileAtlas {
 
         for map in maps.iter() {
             let name: String = util::toml::expect_value_in_table(map, "name");
-            let tile_size: [u32; 2] = util::toml::expect_value_in_table(map, "tile_size");
             let file_path = format!("data/texture/{}", name);
             println!("Load: {}", file_path);
-            builder.add_frame(&file_path, (tile_size[0], tile_size[1]));
+            builder.add_frame(&file_path);
         }
 
         let tiles = match util::toml::expect_value_in_table(&val, "tiles") {
@@ -120,26 +122,19 @@ impl TileAtlas {
 
         for tile in tiles.iter() {
             let name: String = util::toml::expect_value_in_table(tile, "name");
+            let map: String = util::toml::expect_value_in_table(tile, "map");
 
-            let atlas: String = util::toml::expect_value_in_table(tile, "atlas");
             let offset: [u32; 2] = util::toml::expect_value_in_table(tile, "offset");
-            let is_autotile: bool = util::toml::expect_value_in_table(tile, "is_autotile");
-            let tile_kind = match util::toml::get_value_in_table(tile, "anim_frames") {
-                Some(anim_frames) => {
-                    let anim_frames = anim_frames.clone().try_into().unwrap();
-                    let anim_delay = util::toml::expect_value_in_table(tile, "anim_delay");
-                    TileKind::Animated(anim_frames, anim_delay)
-                },
-                None => TileKind::Static,
-            };
+            let count: [u32; 2] = util::toml::expect_value_in_table(tile, "count");
+            let size: [u32; 2] = util::toml::expect_value_in_table(tile, "size");
 
             let tile = AtlasTileData {
                 offset: (offset[0], offset[1]),
-                is_autotile: is_autotile,
-                tile_kind: tile_kind,
+                count: (count[0], count[1]),
+                size: (size[0], size[1]),
             };
 
-            let file_path = format!("data/texture/{}", atlas);
+            let file_path = format!("data/texture/{}", map);
             builder.add_tile(&file_path, name, tile);
         }
 

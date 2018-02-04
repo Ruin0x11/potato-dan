@@ -5,10 +5,14 @@ use util;
 use world::World;
 
 pub mod background;
+pub mod spritemap;
 mod viewport;
 
 use self::background::Background;
+use self::spritemap::SpriteMap;
 pub use self::viewport::Viewport;
+
+use renderer::RenderUpdate;
 
 use glium;
 use glium::glutin;
@@ -55,7 +59,10 @@ implement_vertex!(Vertex, position);
 pub struct RenderContext {
     backend: glium::Display,
     events_loop: glutin::EventsLoop,
+
     background: Background,
+    spritemap: SpriteMap,
+
     pub viewport: Viewport,
     accumulator: FpsAccumulator,
 }
@@ -76,6 +83,7 @@ impl RenderContext {
         let display = glium::Display::new(window, context, &events_loop).unwrap();
 
         let bg = Background::new(&display);
+        let sprite = SpriteMap::new(&display);
 
         let scale = display.gl_window().hidpi_factor();
 
@@ -93,13 +101,15 @@ impl RenderContext {
             events_loop: events_loop,
 
             background: bg,
+            spritemap: sprite,
+
             accumulator: accumulator,
             viewport: viewport,
         }
     }
 
     pub fn update(&mut self, world: &World) {
-
+        self.spritemap.update(world, &self.viewport);
     }
 
     pub fn render(&mut self) {
@@ -109,6 +119,10 @@ impl RenderContext {
         let millis = self.accumulator.millis_since_start();
 
         self.background
+            .render(&self.backend, &mut target, &self.viewport, millis);
+
+        self.spritemap.redraw(&self.backend, millis);
+        self.spritemap
             .render(&self.backend, &mut target, &self.viewport, millis);
 
         target.finish().unwrap();

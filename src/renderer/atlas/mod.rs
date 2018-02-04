@@ -53,9 +53,12 @@ pub type AtlasTextureRegion = (f32, f32, f32, f32);
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct AtlasTileData {
+    /// Offset of start of sprite chunk
     pub offset: (u32, u32),
-    pub is_autotile: bool,
-    pub tile_kind: TileKind,
+    /// Number of sprite variations in terms of width and height
+    pub count: (u32, u32),
+    /// Size of all sprites in the chunk
+    pub size: (u32, u32),
 }
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -67,16 +70,14 @@ pub struct AtlasTile {
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct AtlasFrame {
-    tile_size: (u32, u32),
     texture_idx: usize,
     pub rect: AtlasRect,
     offsets: HashMap<String, AtlasTile>,
 }
 
 impl AtlasFrame {
-    pub fn new(texture_idx: usize, rect: Rect, tile_size: (u32, u32)) -> Self {
+    pub fn new(texture_idx: usize, rect: Rect) -> Self {
         AtlasFrame {
-            tile_size: tile_size,
             texture_idx: texture_idx,
             rect: AtlasRect::from(rect),
             offsets: HashMap::new(),
@@ -130,7 +131,7 @@ impl<'a> TileAtlasBuilder<'a> {
         }
     }
 
-    pub fn add_frame(&mut self, path_string: &str, tile_size: (u32, u32)) {
+    pub fn add_frame(&mut self, path_string: &str) {
         if self.frames.contains_key(path_string) {
             return;
         }
@@ -143,7 +144,7 @@ impl<'a> TileAtlasBuilder<'a> {
                 packer.pack_own(path_string.to_string(), texture).unwrap();
                 let rect = packer.get_frame(path_string).unwrap().frame;
                 self.frames
-                    .insert(path_string.to_string(), AtlasFrame::new(idx, rect, tile_size));
+                    .insert(path_string.to_string(), AtlasFrame::new(idx, rect));
                 // cannot return self here, since self already borrowed, so
                 // cannot use builder pattern.
                 return;
@@ -158,10 +159,12 @@ impl<'a> TileAtlasBuilder<'a> {
 
             let packer_idx = self.packers.len() - 1;
             let packer = &mut self.packers[packer_idx];
+            println!("{:?}", path_string);
             packer.pack_own(path_string.to_string(), texture).unwrap();
+
             let rect = packer.get_frame(&path_string).unwrap().frame;
             self.frames
-                .insert(path_string.to_string(), AtlasFrame::new(packer_idx, rect, tile_size));
+                .insert(path_string.to_string(), AtlasFrame::new(packer_idx, rect));
         }
     }
 
@@ -210,13 +213,13 @@ impl<'a> TileAtlasBuilder<'a> {
         println!("Saved {}", packed_tex_folder);
 
         // Generate minimap colors for tiles
-        for frame in self.frames.values_mut() {
-            for offset in frame.offsets.values_mut() {
-                let image = &images[frame.texture_idx];
-                let color = tile_minimap_color(&frame.rect, &frame.tile_size, offset, &image);
-                offset.color = color;
-            }
-        }
+        // for frame in self.frames.values_mut() {
+        //     for offset in frame.offsets.values_mut() {
+        //         let image = &images[frame.texture_idx];
+        //         let color = color::BLACK;
+        //         offset.color = color;
+        //     }
+        // }
 
         let config = TileAtlasConfig {
             locations: self.locations.clone(),
@@ -228,19 +231,6 @@ impl<'a> TileAtlasBuilder<'a> {
 
         TileAtlas::new(config, textures)
     }
-}
-
-fn tile_minimap_color(rect: &AtlasRect,
-                      tile_size: &(u32, u32),
-                      offset: &AtlasTile,
-                      texture: &DynamicImage)
-                      -> Color {
-    let x = offset.data.offset.0 * tile_size.0 + rect.x;
-    let y = offset.data.offset.1 * tile_size.1 + rect.y;
-
-    let pixel = texture.get_pixel(x, y);
-
-    Color::new(pixel.data[0], pixel.data[1], pixel.data[2])
 }
 
 impl TileAtlas {
@@ -262,17 +252,12 @@ impl TileAtlas {
         for frame in self.config.frames.values() {
             let (frame_w, frame_h) = self.frame_size(frame);
 
-            for (tile_type, tile) in frame.offsets.iter() {
-                let tex_ratio = self.get_sprite_tex_ratio(tile_type);
-                let add_offset = get_add_offset(&frame.rect, &frame.tile_size);
+            for (_, tile) in frame.offsets.iter() {
+                let tx = tile.data.offset.0 as f32 / frame_w as f32;
+                let ty = tile.data.offset.1 as f32 / frame_h as f32;
 
-                let ratio = if tile.data.is_autotile { 2.0 } else { 1.0 };
-
-                let tx = ((tile.data.offset.0 as f32 + add_offset.0) * ratio) * tex_ratio[0];
-                let ty = ((tile.data.offset.1 as f32 + add_offset.1) * ratio) * tex_ratio[1];
-
-                let tw = (frame.tile_size.0 as f32 * ratio) / frame_w as f32;
-                let th = (frame.tile_size.1 as f32 * ratio) / frame_h as f32;
+                let tw = tile.data.size.0 as f32 / frame_w as f32;
+                let th = tile.data.size.1 as f32 / frame_h as f32;
 
                 *tile.cached_rect.borrow_mut() = Some((tx, ty, tw, th));
             }
@@ -312,13 +297,7 @@ impl TileAtlas {
 
     pub fn get_sprite_tex_ratio(&self, tile_type: &str) -> [f32; 2] {
         let frame = self.get_frame(tile_type);
-        let (mut sx, mut sy) = frame.tile_size;
-
-        if frame.offsets[tile_type].data.is_autotile {
-            // divide the autotile into 24x24 from 48x48
-            sx /= 2;
-            sy /= 2;
-        }
+        let (sx, sy) = frame.offsets[tile_type].data.size;
 
         let dimensions = self.frame_size(frame);
 
@@ -328,7 +307,7 @@ impl TileAtlas {
     }
 
     pub fn get_tile_texture_size(&self, tile_type: &str) -> (u32, u32) {
-        self.get_frame(tile_type).tile_size
+        self.get_frame(tile_type).offsets[tile_type].data.size
     }
 
     pub fn get_tile(&self, tile_type: &str) -> &AtlasTile {
@@ -336,24 +315,30 @@ impl TileAtlas {
         &frame.offsets[tile_type]
     }
 
-    pub fn get_texture_offset(&self, tile_type: &str, msecs: u64) -> (f32, f32) {
+    pub fn get_texture_offset(&self, tile_type: &str, sprite_idx: u32) -> (f32, f32) {
         let frame = self.get_frame(tile_type);
         let tile = &frame.offsets[tile_type];
 
-        let (mut tx, ty, tw, _) =
+        let (mut tx, mut ty, tw, th) =
             tile.cached_rect
                 .borrow()
                 .expect("Texture atlas regions weren't cached yet.");
 
-        match tile.data.tile_kind {
-            TileKind::Static => (),
-            TileKind::Animated(frame_count, delay) => {
-                let current_frame = msecs / delay;
-                let x_index_offset = current_frame % frame_count;
+        let count = tile.data.count;
 
-                tx += x_index_offset as f32 * tw;
-            },
-        }
+        let dx = if sprite_idx == 0 {
+            0
+        } else {
+            sprite_idx % count.0
+        };
+        let dy = if sprite_idx == 0 {
+            0
+        } else {
+            (sprite_idx / count.0) % count.1
+        };
+
+        tx += dx as f32 * tw;
+        ty += dy as f32 * (th / 1.0);
 
         (tx, ty)
     }
@@ -371,9 +356,9 @@ impl TileAtlas {
         &self.indices[tile_idx]
     }
 
-    pub fn get_texture_offset_indexed(&self, tile_idx: usize, msecs: u64) -> (f32, f32) {
+    pub fn get_texture_offset_indexed(&self, tile_idx: usize, variant: u32) -> (f32, f32) {
         let kind = self.get_tile_kind_indexed(tile_idx);
-        self.get_texture_offset(kind, msecs)
+        self.get_texture_offset(kind, variant)
     }
 
     pub fn get_texture(&self, idx: usize) -> &Texture2d {

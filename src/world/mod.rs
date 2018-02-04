@@ -1,3 +1,5 @@
+use std::slice;
+
 use calx_ecs::Entity;
 use ecs;
 use ecs::*;
@@ -19,6 +21,10 @@ impl World {
 
     pub fn ecs(&self) -> &Ecs {
         &self.ecs
+    }
+
+    pub fn entities(&self) -> slice::Iter<Entity> {
+        self.ecs.iter()
     }
 
     // mut

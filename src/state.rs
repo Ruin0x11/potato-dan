@@ -1,10 +1,13 @@
+use std::collections::HashMap;
+
 use GameContext;
-use engine::keys::{Key, KeyCode};
+use engine::keys::KeyCode;
 use world::World;
 use ecs::prefab;
 use ecs::traits::*;
 use point::*;
 use calx_ecs::Entity;
+use util;
 
 pub struct GameState {
     pub world: World,
@@ -29,53 +32,92 @@ pub enum Command {
     Quit,
 }
 
-impl From<Key> for Command {
-    fn from(key: Key) -> Command {
-        match key {
-            Key { code: KeyCode::Escape, .. } => Command::Quit,
-            Key { code: KeyCode::Left, .. } |
-            Key { code: KeyCode::H, .. } |
-            Key { code: KeyCode::NumPad4, .. } => Command::Move(Direction::W),
-            Key { code: KeyCode::Right, .. } |
-            Key { code: KeyCode::L, .. } |
-            Key { code: KeyCode::NumPad6, .. } => Command::Move(Direction::E),
-            Key { code: KeyCode::Up, .. } |
-            Key { code: KeyCode::K, .. } |
-            Key { code: KeyCode::NumPad8, .. } => Command::Move(Direction::N),
-            Key { code: KeyCode::Down, .. } |
-            Key { code: KeyCode::J, .. } |
-            Key { code: KeyCode::NumPad2, .. } => Command::Move(Direction::S),
-            Key { code: KeyCode::B, .. } |
-            Key { code: KeyCode::NumPad1, .. } => Command::Move(Direction::SW),
-            Key { code: KeyCode::N, .. } |
-            Key { code: KeyCode::NumPad3, .. } => Command::Move(Direction::SE),
-            Key { code: KeyCode::Y, .. } |
-            Key { code: KeyCode::NumPad7, .. } => Command::Move(Direction::NW),
-            Key { code: KeyCode::U, .. } |
-            Key { code: KeyCode::NumPad9, .. } => Command::Move(Direction::NE),
+pub fn get_command(input: &HashMap<KeyCode, bool>) -> Command {
+    let h = input.get(&KeyCode::H).map_or(false, |b| *b);
+    let j = input.get(&KeyCode::J).map_or(false, |b| *b);
+    let k = input.get(&KeyCode::K).map_or(false, |b| *b);
+    let l = input.get(&KeyCode::L).map_or(false, |b| *b);
 
-            _ => Command::Wait,
+    if h && j {
+        return Command::Move(Direction::SW);
+    }
+    if h && k {
+        return Command::Move(Direction::NW);
+    }
+    if l && j {
+        return Command::Move(Direction::SE);
+    }
+    if l && k {
+        return Command::Move(Direction::NE);
+    }
+    if h {
+        return Command::Move(Direction::W);
+    }
+    if j {
+        return Command::Move(Direction::S);
+    }
+    if k {
+        return Command::Move(Direction::N);
+    }
+    if l {
+        return Command::Move(Direction::E);
+    }
+
+    Command::Wait
+}
+
+pub fn game_step(context: &mut GameContext, input: &HashMap<KeyCode, bool>) {
+    let command = get_command(input);
+    run_command(context, command);
+
+    process(context);
+}
+
+fn process(context: &mut GameContext) {
+    let world = &mut context.state.world;
+    let mut charas = Vec::new();
+    for entity in world.entities() {
+        if world.ecs().positions.has(*entity) &&
+            world.ecs().appearances.has(*entity) {
+                charas.push(*entity);
+            }
+    }
+
+    for entity in charas {
+        let mut pos = world.ecs_mut().positions.get_mut_or_err(entity);
+        pos.dx += pos.accel_x;
+        pos.dy += pos.accel_y;
+        pos.dx = util::clamp(pos.dx, -0.3, 0.3);
+        pos.dy = util::clamp(pos.dy, -0.3, 0.3);
+        pos.pos.x += pos.dx;
+        pos.pos.y += pos.dy;
+        pos.dx *= 0.8;
+        pos.dy *= 0.8;
+
+        if pos.dx.abs() < 0.01 {
+            pos.dx = 0.0;
+        }
+        if pos.dy.abs() < 0.01 {
+            pos.dy = 0.0;
         }
     }
 }
 
-pub fn game_step(context: &mut GameContext, input: Option<Key>) {
-    if let Some(key) = input {
-        let command = Command::from(key);
-        run_command(context, command);
-    }
-}
-
 pub fn run_command(context: &mut GameContext, command: Command) {
+    let player = context.state.player;
+    let pos = context.state.world.ecs_mut().positions.get_mut_or_err(player);
     match command {
         Command::Move(dir) => {
-            let player = context.state.player;
-
-            let mut pos = context.state.world.ecs_mut().positions.get_mut_or_err(player);
+            let offset = dir.to_movement_offset();
             pos.direction = dir;
+            pos.accel_x = offset.0 as f32 * 0.1;
+            pos.accel_y = offset.1 as f32 * 0.1;
+            pos.movement_frames += 1;
         },
-        Command::Quit => println!("can't quit"),
-        Command::Wait => (),
-
+        _ => {
+            pos.movement_frames = 0;
+            pos.accel_x = 0.0;
+            pos.accel_y = 0.0;
+        }
     }
 }

@@ -1,7 +1,6 @@
 use glium;
 use glium::backend::Facade;
 
-use point::Point;
 use renderer::atlas::*;
 use renderer::render::{self, Renderable, Viewport, Vertex};
 
@@ -30,6 +29,7 @@ pub struct SpriteMap {
 
 struct DrawSprite {
     kind: String,
+    variant: u32
 }
 
 impl SpriteMap {
@@ -54,7 +54,7 @@ impl SpriteMap {
         spritemap
     }
 
-    fn make_instances<F>(&mut self, display: &F, msecs: u64)
+    fn make_instances<F>(&mut self, display: &F)
         where F: glium::backend::Facade {
 
         let mut instances = Vec::new();
@@ -68,13 +68,13 @@ impl SpriteMap {
                 .map(|&(ref sprite, pos)| {
                     let (x, y) = pos;
 
-                    let (tx, ty) = self.tile_atlas.get_texture_offset(&sprite.kind, msecs);
+                    let (tx, ty) = self.tile_atlas.get_texture_offset(&sprite.kind, sprite.variant);
                     let (sx, sy) = self.tile_atlas.get_tile_texture_size(&sprite.kind);
                     let tex_ratio = self.tile_atlas.get_sprite_tex_ratio(&sprite.kind);
 
                     // To store the tile kind without putting a string in the
                     // index vertex, a mapping from a numeric index to a string
-                    // is used in the tile atlas. Then, when the tile kidn needs
+                    // is used in the tile atlas. Then, when the tile kind needs
                     // to be checked, the numeric index can retrieve a tile kind.
                     let tile_idx = self.tile_atlas.get_tile_index(&sprite.kind);
 
@@ -89,20 +89,10 @@ impl SpriteMap {
 
         self.instances = instances;
     }
-
-    fn update_instances(&mut self, msecs: u64) {
-        for buffer in self.instances.iter_mut() {
-            for instance in buffer.map().iter_mut() {
-                let (tx, ty) = self.tile_atlas.get_texture_offset_indexed(instance.tile_idx, msecs);
-
-                instance.tex_offset = [tx, ty];
-            }
-        }
-    }
 }
 
 impl<'a> Renderable for SpriteMap {
-    fn render<F, S>(&self, _display: &F, target: &mut S, viewport: &Viewport)
+    fn render<F, S>(&self, _display: &F, target: &mut S, viewport: &Viewport, _time: u64)
         where F: glium::backend::Facade, S: glium::Surface {
 
         let (proj, scissor) = viewport.main_window();
@@ -112,7 +102,7 @@ impl<'a> Renderable for SpriteMap {
 
             let uniforms = uniform! {
                 matrix: proj,
-                tile_size: [48u32; 2],
+                tile_size: [1u32; 2],
                 tex: texture.sampled()
                     .wrap_function(glium::uniforms::SamplerWrapFunction::Clamp)
                     .minify_filter(glium::uniforms::MinifySamplerFilter::Nearest)
@@ -136,33 +126,58 @@ impl<'a> Renderable for SpriteMap {
     }
 }
 
-use GameContext;
-use renderer::interop::RenderUpdate;
+use renderer::RenderUpdate;
 use world::World;
-use world::traits::Query;
+use ecs::traits::ComponentQuery;
 
-fn make_sprites(world: &World, viewport: &Viewport) -> Vec<(DrawSprite, (u32, u32))> {
+fn make_sprites(world: &World, _viewport: &Viewport) -> Vec<(DrawSprite, (u32, u32))> {
     let mut res = Vec::new();
+
+    {
+        let mut push_sprite = |variant: u32, pos: (u32, u32), kind: &str| {
+            let sprite = DrawSprite { kind: kind.to_string(), variant: variant };
+            res.push((sprite, pos));
+        };
+
+        for entity in world.entities() {
+            if world.ecs().positions.has(*entity) &&
+                world.ecs().appearances.has(*entity) {
+                    let pos = world.ecs().positions.get_or_err(*entity);
+                    //let app = world.ecs().appearances.get_or_err(*entity);
+
+                    let variant = pos.direction.ordinal() as u32 * 10;
+                    push_sprite(variant, ((pos.pos.x * 10.0) as u32, (pos.pos.y * 10.0) as u32), "chara");
+
+                    let mut variant = pos.direction.ordinal() as u32 * 7;
+
+                    // TODO: move to movement logic
+                    if pos.movement_frames != 0 {
+                        variant += ((pos.movement_frames / 5) % 6) + 1;
+                    }
+                    push_sprite(variant, ((pos.pos.x * 10.0) as u32, (pos.pos.y * 10.0) as u32 + 22), "feet");
+                }
+        }
+    }
+
     res
 }
 
 impl RenderUpdate for SpriteMap {
-    fn should_update(&self, _context: &GameContext) -> bool {
+    fn should_update(&self, _world: &World) -> bool {
         true
     }
 
-    fn update(&mut self, context: &GameContext, viewport: &Viewport) {
-        let world = &context.state.world;
+    fn update(&mut self, world: &World, viewport: &Viewport) {
         self.sprites = make_sprites(world, viewport);
         self.valid = false;
     }
 
-    fn redraw<F: Facade>(&mut self, display: &F, msecs: u64) {
+    fn redraw<F: Facade>(&mut self, display: &F, _msecs: u64) {
         if !self.valid {
-            self.make_instances(display, msecs);
+            self.make_instances(display);
             self.valid = true;
         } else {
-            self.update_instances(msecs);
+            //self.update_instances(msecs);
         }
     }
 }

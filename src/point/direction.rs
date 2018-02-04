@@ -43,7 +43,7 @@ impl fmt::Display for Direction {
 }
 
 impl Direction {
-    fn to_movement_offset(&self) -> (i32, i32) {
+    pub fn to_movement_offset(&self) -> (i32, i32) {
         match *self {
             Direction::N => (0, -1),
             Direction::NW => (-1, -1),
@@ -56,7 +56,7 @@ impl Direction {
         }
     }
 
-    fn ordinal(&self) -> usize {
+    pub fn ordinal(&self) -> usize {
         let mut index = 0;
         while index < 7 {
             if DIRECTIONS[index] == *self {

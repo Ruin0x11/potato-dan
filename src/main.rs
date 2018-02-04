@@ -32,9 +32,10 @@ mod state;
 mod util;
 mod world;
 
+use std::collections::HashMap;
 use glium::glutin::{self, VirtualKeyCode, ElementState};
 use state::GameState;
-use engine::keys::{Key, KeyCode};
+use engine::keys::KeyCode;
 
 pub struct GameContext {
     pub state: GameState,
@@ -55,11 +56,12 @@ fn main() {
 }
 
 fn game_loop() {
-    //renderer::with_mut(|rc| rc.update(&context.state.world));
     let mut context = GameContext::new();
+    let mut keys = HashMap::new();
+
+    renderer::with_mut(|rc| rc.update(&context.state.world));
 
     'outer: loop {
-        let mut keys = Vec::new();
         let mut resize = None;
         let mut quit = false;
         renderer::with_mut(|rc| {
@@ -80,8 +82,18 @@ fn game_loop() {
                                     match code {
                                         VirtualKeyCode::Escape => quit = true,
                                         _ => {
-                                            let key = Key::from(KeyCode::from(code));
-                                            keys.push(key);
+                                            let key = KeyCode::from(code);
+                                            keys.insert(key, true);
+                                        },
+                                    }
+                                }
+                            }
+                            if let ElementState::Released = input.state {
+                                if let Some(code) = input.virtual_keycode {
+                                    match code {
+                                        _ => {
+                                            let key = KeyCode::from(code);
+                                            keys.insert(key, false);
                                         },
                                     }
                                 }
@@ -110,7 +122,7 @@ fn game_loop() {
 
         // Ensure that the renderer isn't borrowed during the game step, so it can be used in
         // the middle of any game routine (like querying the player for input)
-        state::game_step(&mut context, keys.pop());
+        state::game_step(&mut context, &keys);
 
         renderer::with_mut(|renderer| renderer.update(&context.state.world));
 
