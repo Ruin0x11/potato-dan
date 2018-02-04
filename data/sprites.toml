@@ -84,3 +84,10 @@ map="objects.png"
 offset=[544, 64]
 count=[3, 5]
 size=[32, 96]
+
+[[tiles]]
+name="cone"
+map="objects.png"
+offset=[64, 416]
+count=[1, 1]
+size=[32, 32]

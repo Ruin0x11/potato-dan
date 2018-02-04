@@ -1,5 +1,9 @@
-use point::*;
+use calx_ecs::Entity;
 use rand::{self, Rng};
+
+use ecs::traits::*;
+use point::*;
+use world::World;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Name {
@@ -69,9 +73,25 @@ impl Physics {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Camera {
-    base: bool,
+    pub primary: bool,
+    pub following: Entity,
 }
 
+impl Camera {
+    pub fn new(following: Entity) -> Self {
+        Camera {
+            primary: true,
+            following: following,
+        }
+    }
+
+    pub fn pos(self, world: &World) -> Option<Point> {
+        if !world.contains(self.following) {
+            return None;
+        }
+        Some(world.ecs().positions.get_or_err(self.following).clone())
+    }
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Chara;
@@ -132,7 +152,7 @@ impl ObjectAppearance {
             variant: variant
         }
     }
- }
+}
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Appearance {

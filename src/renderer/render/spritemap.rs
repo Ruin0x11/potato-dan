@@ -1,6 +1,7 @@
 use glium;
 use glium::backend::Facade;
 
+use point::POINT_ZERO;
 use renderer::atlas::*;
 use renderer::render::{self, Renderable, Viewport, Vertex};
 
@@ -140,12 +141,16 @@ const HAIR_COUNT: u32 = 28;
 const EAR_COUNT: u32 = 10;
 const FACE_COUNT: u32 = 9;
 
-fn make_sprites(world: &World, _viewport: &Viewport) -> Vec<(DrawSprite, (i32, i32))> {
+fn make_sprites(world: &World, viewport: &Viewport) -> Vec<(DrawSprite, (i32, i32))> {
     let mut res = Vec::new();
+    let camera = world.camera_pos().unwrap_or(POINT_ZERO);
+
+    let start_corner = viewport.camera((camera.x, camera.y));
 
     {
         let mut push_sprite = |variant: u32, pos: (i32, i32), kind: &str| {
             let sprite = DrawSprite { kind: kind.to_string(), variant: variant };
+            let pos = (pos.0 - start_corner.0, pos.1 - start_corner.1);
             res.push((sprite, pos));
         };
 
