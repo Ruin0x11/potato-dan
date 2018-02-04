@@ -21,7 +21,7 @@ impl GameState {
         let mut world = World::new();
 
         for i in 0..30 {
-            //world.spawn(prefab::wall(), Point::new(3.0 + (i as f32 * 1.0), 4.0, 0.0));
+            world.spawn(prefab::wall(), Point::new(3.0 + (i as f32 * 1.0), 0.0, 4.0));
             let x = rand::thread_rng().gen_range(0.0, 50.0);
             let z = rand::thread_rng().gen_range(0.0, 50.0);
             world.spawn(prefab::mob("Dood"), Point::new(x, 0.0, z));

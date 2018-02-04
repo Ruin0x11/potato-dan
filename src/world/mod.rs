@@ -23,19 +23,35 @@ pub struct World {
     player: Option<Entity>,
     pub camera: Option<Entity>,
     collision_world: CollisionWorld<Point, Isometry3<f32>, Entity>,
-    shapes: HashMap<PhysicsShape, ShapeHandle3<f32>>,
+    shapes: HashMap<PhysicsShape, CollisionData>,
 }
 
+#[derive(Clone)]
 struct CollisionData {
-    shape: ShapeHandle3<f32>,
-    groups: CollisionGroups,
+    pub shape: ShapeHandle3<f32>,
+    pub groups: CollisionGroups,
 }
 
-fn shape_handles() -> HashMap<PhysicsShape, ShapeHandle3<f32>> {
+fn shape_handles() -> HashMap<PhysicsShape, CollisionData> {
     let mut map = HashMap::new();
 
-    map.insert(PhysicsShape::Chara, ShapeHandle3::new(Ball::new(1.0)));
-    map.insert(PhysicsShape::Wall, ShapeHandle3::new(Cuboid::new(Vector3::new(0.5, 0.5, 0.5))));
+    let mut groups = CollisionGroups::new();
+    groups.set_membership(&[1]);
+    groups.set_whitelist(&[1, 2]);
+    groups.set_blacklist(&[]);
+    map.insert(PhysicsShape::Chara, CollisionData {
+        shape: ShapeHandle3::new(Ball::new(1.0)),
+        groups: groups,
+    });
+
+    let mut groups = CollisionGroups::new();
+    groups.set_membership(&[2]);
+    groups.set_whitelist(&[1]);
+    groups.set_blacklist(&[2]);
+    map.insert(PhysicsShape::Wall, CollisionData {
+        shape: ShapeHandle3::new(Cuboid::new(Vector3::new(0.5, 0.5, 0.5))),
+        groups: groups,
+    });
 
     map
 }
@@ -101,17 +117,17 @@ impl World {
 
 
         if self.ecs.physics.contains(entity) {
-            let shape = {
+            let collision_data = {
                 let phys = self.ecs.physics.get_or_err(entity);
                 self.shapes.get(&phys.shape).cloned().unwrap()
             };
             let pos = self.ecs.positions.get_or_err(entity).clone();
             let mut ball_groups = CollisionGroups::new();
             ball_groups.set_membership(&[1]);
-            let ball_pos = Isometry3::new(Vector3::new(pos.x, pos.y, pos.z), nalgebra::zero());
-            let handle = self.collision_world.add(ball_pos,
-                                                  shape,
-                                                  ball_groups,
+            let obj_pos = Isometry3::new(Vector3::new(pos.x, pos.y, pos.z), nalgebra::zero());
+            let handle = self.collision_world.add(obj_pos,
+                                                  collision_data.shape,
+                                                  collision_data.groups,
                                                   GeometricQueryType::Contacts(0.0, 0.0),
                                                   entity);
 
