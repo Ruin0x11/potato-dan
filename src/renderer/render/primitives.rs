@@ -101,7 +101,7 @@ impl<'a> Renderable for Primitives {
 use renderer::RenderUpdate;
 use world::World;
 use ecs::traits::ComponentQuery;
-use ecs::components::Appearance;
+use ecs::components::{Appearance, PhysicsShape};
 use point::Direction;
 
 impl RenderUpdate for Primitives {
@@ -111,20 +111,24 @@ impl RenderUpdate for Primitives {
 
     fn update(&mut self, world: &World, viewport: &Viewport) {
         let mut prims = Vec::new();
+        let camera = world.camera_pos().unwrap_or(point::zero());
+        let min = viewport.min_point((camera.x, camera.z), 32);
         for entity in world.entities() {
             if world.ecs().physics.has(*entity) {
                 let pos = world.ecs().positions.get_or_err(*entity);
+
+                let scale = match world.ecs().physics.get_or_err(*entity).shape {
+                    PhysicsShape::Chara => (1.0, 1.0, 1.0),
+                    PhysicsShape::Wall => (1.0, 20.0, 1.0),
+                };
+
                 prims.push(DrawPrimitive {
-                    pos: (pos.x, pos.y, pos.z),
-                    scale: (1.0, 1.0, 1.0),
+                    pos: (pos.x - camera.x + 0.5, pos.y, pos.z - camera.z + 0.5),
+                    scale: scale,
                 });
             }
         }
 
-        prims.push(DrawPrimitive {
-            pos: (0.0, -0.5, 0.0),
-            scale: (64.0, 0.5, 64.0),
-        });
         self.prims = prims;
     }
 

@@ -34,6 +34,6 @@ mat4 rotate_x(float theta)
 void main() {
   //gl_Position = matrix * vec4(map_coord * tile_size + position * sprite_size + soffset + vec2(4, -24), 0.0, 1.0);
   gl_Position = (vec4(position * sprite_size * vec2(2.0, 2.0) + inner_offset, 0.0, 1.0) * matrix)
-      + (vec4(map_coord, 0.0, 1.0) * matrix);
+      + (vec4(map_coord, 0.0, 1.0) * matrix * rotate_x(0.785398));
   v_TexCoords = sprite_texture(position);
 }

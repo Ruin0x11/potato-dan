@@ -64,8 +64,10 @@ pub enum PhysicsShape {
 pub struct Physics {
     pub direction: Direction,
     pub dx: f32,
+    pub dy: f32,
     pub dz: f32,
     pub accel_x: f32,
+    pub accel_y: f32,
     pub accel_z: f32,
     pub movement_frames: u32,
     pub shape: PhysicsShape,
@@ -81,8 +83,10 @@ impl Physics {
         Physics {
             direction: Direction::S,
             dx: 0.0,
+            dy: 0.0,
             dz: 0.0,
             accel_x: 0.0,
+            accel_y: 0.0,
             accel_z: 0.0,
             movement_frames: 0,
             shape: shape,
@@ -162,13 +166,15 @@ impl CharaAppearance {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ObjectAppearance {
     pub kind: String,
+    pub offset: (i32, i32),
     pub variant: u32,
 }
 
 impl ObjectAppearance {
-    pub fn new(kind: &str, variant: u32) -> Self {
+    pub fn new(kind: &str, offset: (i32, i32), variant: u32) -> Self {
         ObjectAppearance {
             kind: kind.to_string(),
+            offset: offset,
             variant: variant
         }
     }
@@ -185,7 +191,7 @@ impl Appearance {
         Appearance::Chara(CharaAppearance::new_random())
     }
 
-    pub fn new(kind: &str, variant: u32) -> Self {
-        Appearance::Object(ObjectAppearance::new(kind, variant))
+    pub fn new(kind: &str, offset: (i32, i32), variant: u32) -> Self {
+        Appearance::Object(ObjectAppearance::new(kind, offset, variant))
     }
 }

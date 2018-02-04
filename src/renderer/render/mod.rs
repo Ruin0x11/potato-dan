@@ -171,8 +171,6 @@ impl RenderContext {
     }
 
     pub fn update(&mut self, world: &World) {
-        let camera = world.camera_pos().unwrap_or(point::zero());
-        self.viewport.camera = (camera.x, camera.y, camera.z);
         self.spritemap.update(world, &self.viewport);
         self.primitives.update(world, &self.viewport);
     }

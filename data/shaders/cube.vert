@@ -17,5 +17,5 @@ mat4 rotate_x(float theta)
 
 void main()
 {
-  gl_Position = vec4(position * scale + offset, 1) * matrix;
+  gl_Position = vec4(position * scale * vec3(0.5, 0.5, 0.5) + offset, 1) * matrix * rotate_x(0.785398);
 }

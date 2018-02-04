@@ -13,7 +13,7 @@ use point::*;
 use ncollide::world::{CollisionGroups, CollisionObject3, CollisionWorld, GeometricQueryType};
 use nalgebra::{self, Isometry3, Point3, Translation3, Vector3};
 use ncollide::narrow_phase::{ContactAlgorithm3};
-use ncollide::shape::{Ball, Ball3, Cuboid, Plane, ShapeHandle3};
+use ncollide::shape::{Cylinder, Cuboid, Plane, ShapeHandle3};
 use ncollide::query::{self, Proximity};
 use ncollide::events::{ContactEvents};
 
@@ -40,7 +40,7 @@ fn shape_handles() -> HashMap<PhysicsShape, CollisionData> {
     groups.set_whitelist(&[1, 2]);
     groups.set_blacklist(&[]);
     map.insert(PhysicsShape::Chara, CollisionData {
-        shape: ShapeHandle3::new(Ball::new(1.0)),
+        shape: ShapeHandle3::new(Cylinder::new(0.5, 0.5)),
         groups: groups,
     });
 
@@ -49,7 +49,7 @@ fn shape_handles() -> HashMap<PhysicsShape, CollisionData> {
     groups.set_whitelist(&[1]);
     groups.set_blacklist(&[2]);
     map.insert(PhysicsShape::Wall, CollisionData {
-        shape: ShapeHandle3::new(Cuboid::new(Vector3::new(0.5, 0.5, 0.5))),
+        shape: ShapeHandle3::new(Cuboid::new(Vector3::new(0.5, 10.0, 0.5))),
         groups: groups,
     });
 
@@ -202,6 +202,7 @@ impl World {
                     if self.ecs.physics.has(*e1.data()) {
                         if let Some(p1) = self.ecs.positions.get_mut(*e1.data()) {
                             p1.x += move_vec.x;
+                            p1.y -= move_vec.y;
                             p1.z += move_vec.z;
                         }
                     }
@@ -211,6 +212,7 @@ impl World {
                     if self.ecs.physics.has(*e2.data()) {
                         if let Some(p2) = self.ecs.positions.get_mut(*e2.data()) {
                             p2.x += move_vec.x;
+                            p2.y -= move_vec.y;
                             p2.z += move_vec.z;
                         }
                     }

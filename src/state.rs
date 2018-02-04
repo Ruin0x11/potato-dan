@@ -39,53 +39,71 @@ impl GameState {
 /// A bindable command that can be executed by the player.
 pub enum Command {
     Move(Direction),
+    Jump,
     Wait,
     Quit,
     ReloadShaders,
+    Restart,
 }
 
-pub fn get_command(input: &HashMap<KeyCode, bool>) -> Command {
+pub fn get_commands(input: &HashMap<KeyCode, bool>) -> Vec<Command> {
+    let mut commands = Vec::new();
     let h = input.get(&KeyCode::H).map_or(false, |b| *b);
     let j = input.get(&KeyCode::J).map_or(false, |b| *b);
     let k = input.get(&KeyCode::K).map_or(false, |b| *b);
     let l = input.get(&KeyCode::L).map_or(false, |b| *b);
 
     if h && j {
-        return Command::Move(Direction::SW);
+        commands.push(Command::Move(Direction::SW));
     }
-    if h && k {
-        return Command::Move(Direction::NW);
+    else if h && k {
+        commands.push(Command::Move(Direction::NW));
     }
-    if l && j {
-        return Command::Move(Direction::SE);
+    else if l && j {
+        commands.push(Command::Move(Direction::SE));
     }
-    if l && k {
-        return Command::Move(Direction::NE);
+    else if l && k {
+        commands.push(Command::Move(Direction::NE));
     }
-    if h {
-        return Command::Move(Direction::W);
+    else if h {
+        commands.push(Command::Move(Direction::W));
     }
-    if j {
-        return Command::Move(Direction::S);
+    else if j {
+        commands.push(Command::Move(Direction::S));
     }
-    if k {
-        return Command::Move(Direction::N);
+    else if k {
+        commands.push(Command::Move(Direction::N));
     }
-    if l {
-        return Command::Move(Direction::E);
+    else if l {
+        commands.push(Command::Move(Direction::E));
+    }
+
+    let space = input.get(&KeyCode::Space).map_or(false, |b| *b);
+    if space {
+        commands.push(Command::Jump);
     }
 
     let r = input.get(&KeyCode::R).map_or(false, |b| *b);
     if r {
-        return Command::ReloadShaders;
+        commands.push(Command::ReloadShaders);
     }
 
-    Command::Wait
+    let q = input.get(&KeyCode::Q).map_or(false, |b| *b);
+    if q {
+        commands.push(Command::Restart);
+    }
+
+    if commands.is_empty() {
+        commands.push(Command::Wait);
+    }
+
+    commands
 }
 
 pub fn game_step(context: &mut GameContext, input: &HashMap<KeyCode, bool>) {
-    let command = get_command(input);
-    run_command(context, command);
+    for command in get_commands(input) {
+        run_command(context, command);
+    }
 
     process(context);
 }
@@ -103,17 +121,20 @@ fn process(context: &mut GameContext) {
     }
 
     for entity in objects {
+        let mut set_to_ground = false;
         let mut dx;
+        let mut dy;
         let mut dz;
         {
+            let pos = *world.ecs().positions.get_or_err(entity);
             let mut phys = world.ecs_mut().physics.get_mut_or_err(entity);
             phys.dx += phys.accel_x;
+            phys.dy -= phys.accel_y;
             phys.dz += phys.accel_z;
             phys.dx = util::clamp(phys.dx, -0.1, 0.1);
             phys.dz = util::clamp(phys.dz, -0.1, 0.1);
-            dx = phys.dx;
-            dz = phys.dz;
             phys.dx *= 0.8;
+            phys.accel_y -= 0.01;
             phys.dz *= 0.8;
 
             if phys.dx.abs() < 0.01 {
@@ -122,11 +143,24 @@ fn process(context: &mut GameContext) {
             if phys.dz.abs() < 0.01 {
                 phys.dz = 0.0;
             }
+            if (pos.y + phys.dy) > 0.01 {
+                phys.dy = 0.0;
+                phys.accel_y = 0.0;
+                set_to_ground = true
+            }
+
+            dx = phys.dx;
+            dy = phys.dy;
+            dz = phys.dz;
         }
 
         let mut pos = world.ecs_mut().positions.get_mut_or_err(entity);
         pos.x += dx;
-        pos.y = 0.0;
+        if set_to_ground {
+            pos.y = 0.0;
+        } else {
+            pos.y += dy;
+        }
         pos.z += dz;
     }
 }
@@ -148,27 +182,37 @@ fn update_camera(context: &mut GameContext) {
     }
 }
 
+pub fn restart_game(context: &mut GameContext) {
+    *context = GameContext::new();
+}
+
 pub fn run_command(context: &mut GameContext, command: Command) {
-    let mut charas = Vec::new();
-    for entity in context.state.world.entities() {
-        if context.state.world.ecs().charas.has(*entity) {
-            charas.push(*entity);
-        }
-    }
-
-    let player = context.state.world.player().unwrap();
-    let mut phys = context.state.world.ecs_mut().physics.get_mut_or_err(player);
-
     match command {
         Command::Move(dir) => {
+            let player = context.state.world.player().unwrap();
+            let mut phys = context.state.world.ecs_mut().physics.get_mut_or_err(player);
+
             let offset = dir.to_movement_offset();
             phys.direction = dir;
             phys.accel_x = offset.0 as f32 * 0.05;
             phys.accel_z = offset.1 as f32 * 0.05;
             phys.movement_frames += 1;
         },
+        Command::Jump => {
+            let player = context.state.world.player().unwrap();
+            let pos = *context.state.world.ecs().positions.get_or_err(player);
+            let mut phys = context.state.world.ecs_mut().physics.get_mut_or_err(player);
+
+            if phys.accel_y > -0.1 {
+                phys.dy = -3.0
+            }
+        }
         Command::ReloadShaders => renderer::with_mut(|rc| rc.reload_shaders()),
+        Command::Restart => restart_game(context),
         _ => {
+            let player = context.state.world.player().unwrap();
+            let mut phys = context.state.world.ecs_mut().physics.get_mut_or_err(player);
+
             phys.movement_frames = 0;
             phys.accel_x = 0.0;
             phys.accel_z = 0.0;

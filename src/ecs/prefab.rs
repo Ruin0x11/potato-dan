@@ -12,7 +12,7 @@ pub fn mob(name: &str) -> Loadout {
 
 pub fn wall() -> Loadout {
     Loadout::new()
-        .c(Appearance::new("wall", 0))
+        .c(Appearance::new("wall", (0, -70), 0))
         .c(Health::new(10000))
         .c(Physics::new(PhysicsShape::Wall))
 }

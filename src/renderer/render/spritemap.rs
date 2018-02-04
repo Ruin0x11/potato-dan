@@ -155,6 +155,8 @@ const FACE_COUNT: u32 = 9;
 fn make_sprites(world: &World, viewport: &Viewport) -> Vec<(DrawSprite, (i32, i32, i32, i32))> {
     let mut res = Vec::new();
 
+    let camera = world.camera_pos().unwrap_or(point::zero());
+    let min = viewport.min_point((camera.x, camera.z), 1);
     {
         for entity in world.entities() {
             if !world.ecs().positions.has(*entity) {
@@ -162,12 +164,14 @@ fn make_sprites(world: &World, viewport: &Viewport) -> Vec<(DrawSprite, (i32, i3
             }
 
             let pos = world.ecs().positions.get_or_err(*entity);
-            let screen_x = (pos.x * 32.0) as i32;
-            let screen_y = (pos.z * 32.0) as i32;
+            let screen_x = (pos.x * 64.0) as i32;
+            let screen_y = (pos.z * 64.0) as i32;
 
             let mut push_sprite = |variant: u32, pos: (i32, i32), kind: &str| {
                 let sprite = DrawSprite { kind: kind.to_string(), variant: variant };
-                res.push((sprite, (screen_x, screen_y, pos.0, pos.1)));
+                let x = screen_x - (camera.x* 64.0) as i32;
+                let y = screen_y - (camera.z* 64.0) as i32;
+                res.push((sprite, (x, y, pos.0, pos.1)));
             };
 
             match world.ecs().appearances.get(*entity) {
@@ -187,7 +191,7 @@ fn make_sprites(world: &World, viewport: &Viewport) -> Vec<(DrawSprite, (i32, i3
                     let face_kind = (chara.face_kind % FACE_COUNT) + ord * FACE_COUNT;
 
                     if tail_occluded {
-                        //push_sprite(tail_kind, (0,10), "tail");
+                        push_sprite(tail_kind, (0, 0), "tail");
                     }
 
                     push_sprite(body_kind, (0, 0), "body");
@@ -201,14 +205,14 @@ fn make_sprites(world: &World, viewport: &Viewport) -> Vec<(DrawSprite, (i32, i3
                     push_sprite(hair_kind, (-16, 8), "hair");
                     push_sprite(chara.helmet_kind, (-14, -16), "helmet");
                     push_sprite(ear_kind, (-16, -48), "ears");
-                    //push_sprite(face_kind, (0, -8), "face");
+                    push_sprite(face_kind, (0, 0), "face");
 
                     if !tail_occluded {
-                        //push_sprite(tail_kind, (0, 10), "tail");
+                        push_sprite(tail_kind, (-32, 32), "tail");
                     }
                 },
                 Some(&Appearance::Object(ref object)) => {
-                    push_sprite(object.variant, (0, 0), &object.kind);
+                    push_sprite(object.variant, object.offset, &object.kind);
                 },
                 _ => (),
             }

@@ -31,6 +31,19 @@ impl Viewport {
         ((self.size.0 as f32 * self.scale) as u32, (self.size.1 as f32 * self.scale) as u32)
     }
 
+    pub fn min_point(&self, camera: (f32, f32), pixels_per_unit: u32) -> (f32, f32) {
+        let (w, h) = (self.size.0 as f32, self.size.1 as f32);
+        let zoom = 1.0;
+        let pixels_per_unit = pixels_per_unit as f32;
+
+        let effective_width = w / (zoom * pixels_per_unit);
+        let effective_height = h / (zoom * pixels_per_unit);
+        let half_width = effective_width / 2.0;
+        let half_height = effective_height / 2.0;
+
+        (camera.0 - half_width, camera.1 - half_height)
+    }
+
     pub fn renderable_area(&self) -> (i32, i32) {
         (self.width() as i32, self.height() as i32)
     }
