@@ -4,7 +4,9 @@ use GameContext;
 use engine::keys::KeyCode;
 use world::World;
 use ecs::prefab;
+use ecs::Loadout;
 use ecs::traits::*;
+use ecs::components::*;
 use point::*;
 use calx_ecs::Entity;
 use util;
@@ -12,13 +14,11 @@ use rand::{self, Rng};
 
 pub struct GameState {
     pub world: World,
-    pub player: Entity,
 }
 
 impl GameState {
     pub fn new() -> Self {
         let mut world = World::new();
-        let player = world.spawn(prefab::mob("Dood"), Point::new(5.0, 5.0, 0.0));
 
         for i in 0..10 {
             world.spawn(prefab::wall(), Point::new(3.0 + (i as f32 * 1.0), 4.0, 0.0));
@@ -29,7 +29,6 @@ impl GameState {
 
         GameState {
             world: world,
-            player: player,
         }
     }
 }
@@ -83,17 +82,19 @@ pub fn game_step(context: &mut GameContext, input: &HashMap<KeyCode, bool>) {
 }
 
 fn process(context: &mut GameContext) {
+    update_camera(context);
+
     let world = &mut context.state.world;
     let mut objects = Vec::new();
     for entity in world.entities() {
-        if world.ecs().positions.has(*entity) {
+        if world.ecs().physics.has(*entity) {
             objects.push(*entity);
         }
     }
 
     for entity in objects {
-        let mut dx = 0.0;
-        let mut dy = 0.0;
+        let mut dx;
+        let mut dy;
         {
             let mut phys = world.ecs_mut().physics.get_mut_or_err(entity);
             phys.dx += phys.accel_x;
@@ -119,8 +120,24 @@ fn process(context: &mut GameContext) {
     }
 }
 
+fn update_camera(context: &mut GameContext) {
+    let camera_entity = context.state.world.camera;
+
+    if camera_entity.is_none() {
+        return;
+    }
+
+    let camera_entity = camera_entity.unwrap();
+
+    let following_pos = context.state.world.camera_pos();
+
+    let mut pos = context.state.world.ecs_mut().positions.get_mut_or_err(camera_entity);
+    if let Some(p) = following_pos {
+        *pos = p;
+    }
+}
+
 pub fn run_command(context: &mut GameContext, command: Command) {
-    //let player = context.state.player;
     let mut charas = Vec::new();
     for entity in context.state.world.entities() {
         if context.state.world.ecs().charas.has(*entity) {

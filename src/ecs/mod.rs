@@ -9,5 +9,6 @@ Ecs! {
     physics: components::Physics,
     positions: point::Point,
     charas: components::Chara,
+    cameras: components::Camera,
     appearances: components::Appearance,
 }

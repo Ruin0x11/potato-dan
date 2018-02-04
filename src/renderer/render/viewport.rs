@@ -1,6 +1,7 @@
 use cgmath;
 use glium;
 use renderer::render::{SCREEN_WIDTH, SCREEN_HEIGHT};
+use util;
 
 #[derive(Debug)]
 pub struct Viewport {
@@ -13,39 +14,31 @@ pub struct Viewport {
 pub type RendererSubarea = ([[f32; 4]; 4], glium::Rect);
 
 impl Viewport {
+    pub fn width(&self) -> u32 {
+        self.size.0
+    }
+
+    pub fn height(&self) -> u32 {
+        self.size.1
+    }
+
     pub fn main_window(&self) -> RendererSubarea {
         let (w, h) = self.scaled_size();
-        self.make_subarea((0, 0, w, h - 120))
+        self.make_subarea((0, 0, w, h))
     }
 
     pub fn scaled_size(&self) -> (u32, u32) {
         ((self.size.0 as f32 * self.scale) as u32, (self.size.1 as f32 * self.scale) as u32)
     }
 
-    pub fn visible_area(&self) -> (u32, u32) {
-        (self.size.0 / 48, (self.size.1 - 120) / 48)
+    pub fn renderable_area(&self) -> (i32, i32) {
+        (self.width() as i32, self.height() as i32)
     }
 
-    pub fn renderable_area() -> (i32, i32) {
-        (SCREEN_WIDTH as i32 / 48, SCREEN_HEIGHT as i32 / 48)
-    }
-
-
-    /// Returns the tile position of the upper-left corner of the viewport with
-    /// the given camera coordinates.
-    pub fn min_tile_pos<I: Into<(i32, i32)>>(&self, camera: I) -> (i32, i32) {
-        let camera = camera.into();
-        let (vw, vh) = self.visible_area();
-        (camera.0 - (vw as i32 / 2), camera.1 - (vh as i32 / 2))
-    }
-
-    /// Returns the tile position of the bottom-right corner of the viewport
-    /// with the given camera coordinates.
-    pub fn max_tile_pos<I: Into<(i32, i32)>>(&self, camera: I) -> (i32, i32) {
-        let c = self.min_tile_pos(camera);
-        let v = Viewport::renderable_area();
-
-        (c.0 + v.0, c.1 + v.1)
+    pub fn camera(&self, camera: (f32, f32)) -> (i32, i32) {
+        let camera: (f32, f32) = camera.into();
+        let camera = ((camera.0 * 32.0) as i32, (camera.1 * 32.0) as i32);
+        (camera.0 - (self.width() as i32 / 2), camera.1 - (self.width() as i32 / 2))
     }
 
     fn make_subarea(&self, area: (u32, u32, u32, u32)) -> RendererSubarea {

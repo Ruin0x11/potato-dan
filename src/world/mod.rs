@@ -2,18 +2,32 @@ use std::slice;
 
 use calx_ecs::Entity;
 use ecs::*;
+use ecs::prefab;
+use ecs::Loadout;
 use ecs::traits::*;
-use point::Point;
+use ecs::components::*;
+use point::*;
 
 pub struct World {
     ecs: Ecs,
+    player: Option<Entity>,
+    pub camera: Option<Entity>,
 }
 
 impl World {
     pub fn new() -> Self {
-        World {
+        let mut world = World {
             ecs: Ecs::new(),
-        }
+            player: None,
+            camera: None,
+        };
+
+        let player = world.spawn(prefab::mob("Dood"), Point::new(5.0, 5.0, 0.0));
+        let camera = world.spawn(Loadout::new().c(Camera::new(player)), POINT_ZERO);
+
+        world.player = Some(player);
+        world.camera = Some(camera);
+        world
     }
 
     // immut
@@ -24,6 +38,20 @@ impl World {
 
     pub fn entities(&self) -> slice::Iter<Entity> {
         self.ecs.iter()
+    }
+
+    pub fn contains(&self, entity: Entity) -> bool {
+        self.ecs.contains(entity)
+    }
+
+    pub fn camera_pos(&self) -> Option<Point> {
+        self.camera.map(|c| self.ecs().cameras.get_or_err(c)).and_then(|cam| {
+            if !self.contains(cam.following) || !self.ecs().positions.has(cam.following) {
+                None
+            } else {
+                self.ecs().positions.get(cam.following).cloned()
+            }
+        })
     }
 
     // mut
