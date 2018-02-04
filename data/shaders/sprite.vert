@@ -10,6 +10,7 @@ in uvec2 sprite_size;
 uniform mat4 matrix;
 uniform uvec2 tile_size;
 uniform vec2 angle;
+uniform uint time;
 
 out highp vec2 v_TexCoords;
 
@@ -19,13 +20,18 @@ vec2 sprite_texture(vec2 pos) {
   return vec2(u, v);
 }
 
-vec2 sprite_offset(vec2 size) {
-  // return (vec2(48, 48) - size) / vec2(2, 2);
-  return (vec2(48, 48) - size) - vec2((48 - size.x) / 2, (48 - size.y) / 2);
+mat4 rotate_x(float theta)
+{
+    return mat4(
+        vec4(1.0,         0.0,         0.0, 0.0),
+        vec4(0.0,  cos(theta),  sin(theta), 0.0),
+        vec4(0.0, -sin(theta),  cos(theta), 0.0),
+        vec4(0.0,         0.0,         0.0, 1.0)
+    );
 }
 
 void main() {
-  vec2 soffset = sprite_offset(sprite_size);
-  gl_Position = matrix * vec4(map_coord * tile_size + position * sprite_size + soffset + vec2(4, -24), 0.0, 1.0);
+  //gl_Position = matrix * vec4(map_coord * tile_size + position * sprite_size + soffset + vec2(4, -24), 0.0, 1.0);
+  gl_Position = vec4((position) * sprite_size + map_coord, 0.0, 1.0) * matrix * rotate_x(float(time) / 1000.0);
   v_TexCoords = sprite_texture(position);
 }

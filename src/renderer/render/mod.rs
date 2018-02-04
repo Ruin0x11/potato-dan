@@ -6,10 +6,12 @@ use world::World;
 
 pub mod background;
 pub mod spritemap;
+pub mod primitives;
 mod viewport;
 
 use self::background::Background;
 use self::spritemap::SpriteMap;
+use self::primitives::Primitives;
 pub use self::viewport::Viewport;
 
 use renderer::RenderUpdate;
@@ -20,12 +22,65 @@ use glium::Surface;
 use glium::backend::Facade;
 use glium::index::PrimitiveType;
 
+#[derive(Copy, Clone)]
+pub struct Vertex {
+    pub position: [i32; 2],
+}
+
+implement_vertex!(Vertex, position);
+
 pub const QUAD_INDICES: [u16; 6] = [0, 1, 2, 1, 3, 2];
 pub const QUAD: [Vertex; 4] = [
     Vertex { position: [0, 1] },
     Vertex { position: [1, 1] },
     Vertex { position: [0, 0] },
     Vertex { position: [1, 0] },
+];
+
+#[derive(Copy, Clone)]
+pub struct Vertex3 {
+    pub position: [i32; 3],
+}
+
+implement_vertex!(Vertex3, position);
+
+pub const CUBE_INDICES: [u16; 36] = [0,  1,  2,  0,  2,  3,   //front
+                                     4,  5,  6,  4,  6,  7,   //right
+                                     8,  9,  10, 8,  10, 11,  //back
+                                     12, 13, 14, 12, 14, 15,  //left
+                                     16, 17, 18, 16, 18, 19,  //upper
+                                     20, 21, 22, 20, 22, 23];
+
+pub const CUBE: [Vertex3; 24] = [
+    Vertex3 { position: [-1, -1, 1] },
+    Vertex3 { position: [ 1, -1, 1] },
+    Vertex3 { position: [ 1,  1, 1] },
+    Vertex3 { position: [-1,  1, 1] },
+
+    Vertex3 { position: [1,  1,   1] },
+    Vertex3 { position: [1,  1,  -1] },
+    Vertex3 { position: [1, -1,  -1] },
+    Vertex3 { position: [1, -1,   1] },
+
+    Vertex3 { position: [-1, -1, -1] },
+    Vertex3 { position: [ 1, -1, -1] },
+    Vertex3 { position: [ 1,  1, -1] },
+    Vertex3 { position: [-1,  1, -1] },
+
+    Vertex3 { position: [-1, -1, -1] },
+    Vertex3 { position: [-1, -1,  1] },
+    Vertex3 { position: [-1,  1,  1] },
+    Vertex3 { position: [-1,  1, -1] },
+
+    Vertex3 { position: [ 1, 1,  1] },
+    Vertex3 { position: [-1, 1,  1] },
+    Vertex3 { position: [-1, 1, -1] },
+    Vertex3 { position: [ 1, 1, -1] },
+
+    Vertex3 { position: [-1, -1, -1] },
+    Vertex3 { position: [ 1, -1, -1] },
+    Vertex3 { position: [ 1, -1,  1] },
+    Vertex3 { position: [-1, -1,  1] },
 ];
 
 pub fn load_program<F: Facade>(
@@ -45,16 +100,19 @@ pub fn make_quad_buffers<F: Facade>(
     let vertices = glium::VertexBuffer::immutable(display, &QUAD).unwrap();
     let indices =
         glium::IndexBuffer::immutable(display, PrimitiveType::TrianglesList, &QUAD_INDICES)
-            .unwrap();
+        .unwrap();
     (vertices, indices)
 }
 
-#[derive(Copy, Clone)]
-pub struct Vertex {
-    pub position: [i32; 2],
+pub fn make_cube_buffers<F: Facade>(
+    display: &F,
+) -> (glium::VertexBuffer<Vertex3>, glium::IndexBuffer<u16>) {
+    let vertices = glium::VertexBuffer::immutable(display, &CUBE).unwrap();
+    let indices =
+        glium::IndexBuffer::immutable(display, PrimitiveType::LineLoop, &CUBE_INDICES)
+        .unwrap();
+    (vertices, indices)
 }
-
-implement_vertex!(Vertex, position);
 
 pub struct RenderContext {
     backend: glium::Display,
@@ -62,6 +120,7 @@ pub struct RenderContext {
 
     background: Background,
     spritemap: SpriteMap,
+    primitives: Primitives,
 
     pub viewport: Viewport,
     accumulator: FpsAccumulator,
@@ -84,6 +143,7 @@ impl RenderContext {
 
         let bg = Background::new(&display);
         let sprite = SpriteMap::new(&display);
+        let prim = Primitives::new(&display);
 
         let scale = display.gl_window().hidpi_factor();
 
@@ -102,6 +162,7 @@ impl RenderContext {
 
             background: bg,
             spritemap: sprite,
+            primitives: prim,
 
             accumulator: accumulator,
             viewport: viewport,
@@ -110,6 +171,7 @@ impl RenderContext {
 
     pub fn update(&mut self, world: &World) {
         self.spritemap.update(world, &self.viewport);
+        self.primitives.update(world, &self.viewport);
     }
 
     pub fn render(&mut self) {
@@ -123,6 +185,10 @@ impl RenderContext {
 
         self.spritemap.redraw(&self.backend, millis);
         self.spritemap
+            .render(&self.backend, &mut target, &self.viewport, millis);
+
+        self.primitives.redraw(&self.backend, millis);
+        self.primitives
             .render(&self.backend, &mut target, &self.viewport, millis);
 
         target.finish().unwrap();
@@ -141,7 +207,7 @@ impl RenderContext {
     }
 
     pub fn poll_events<F>(&mut self, callback: F)
-    where
+        where
         F: FnMut(glutin::Event),
     {
         self.events_loop.poll_events(callback)
@@ -156,7 +222,7 @@ impl RenderContext {
 
 pub trait Renderable {
     fn render<F, S>(&self, display: &F, target: &mut S, viewport: &Viewport, time: u64)
-    where
+        where
         F: glium::backend::Facade,
         S: glium::Surface;
 }

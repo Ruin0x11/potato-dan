@@ -512,7 +512,7 @@ dependencies = [
 [[package]]
 name = "ncollide"
 version = "0.13.0"
-source = "git+https://github.com/Ruin0x11/ncollide#d32c63690148e2ce30ad0c996a8eefab552c7744"
+source = "git+https://github.com/Ruin0x11/ncollide#29d582ffcbc68ae1755e9764d4dbdf5f7699ef12"
 dependencies = [
  "ncollide_geometry 0.5.1 (git+https://github.com/Ruin0x11/ncollide)",
  "ncollide_math 0.8.0 (git+https://github.com/Ruin0x11/ncollide)",
@@ -525,7 +525,7 @@ dependencies = [
 [[package]]
 name = "ncollide_geometry"
 version = "0.5.1"
-source = "git+https://github.com/Ruin0x11/ncollide#d32c63690148e2ce30ad0c996a8eefab552c7744"
+source = "git+https://github.com/Ruin0x11/ncollide#29d582ffcbc68ae1755e9764d4dbdf5f7699ef12"
 dependencies = [
  "alga 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "approx 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -538,7 +538,7 @@ dependencies = [
 [[package]]
 name = "ncollide_math"
 version = "0.8.0"
-source = "git+https://github.com/Ruin0x11/ncollide#d32c63690148e2ce30ad0c996a8eefab552c7744"
+source = "git+https://github.com/Ruin0x11/ncollide#29d582ffcbc68ae1755e9764d4dbdf5f7699ef12"
 dependencies = [
  "alga 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "approx 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -550,7 +550,7 @@ dependencies = [
 [[package]]
 name = "ncollide_pipeline"
 version = "0.12.1"
-source = "git+https://github.com/Ruin0x11/ncollide#d32c63690148e2ce30ad0c996a8eefab552c7744"
+source = "git+https://github.com/Ruin0x11/ncollide#29d582ffcbc68ae1755e9764d4dbdf5f7699ef12"
 dependencies = [
  "alga 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "nalgebra 0.14.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -563,7 +563,7 @@ dependencies = [
 [[package]]
 name = "ncollide_procedural"
 version = "0.8.0"
-source = "git+https://github.com/Ruin0x11/ncollide#d32c63690148e2ce30ad0c996a8eefab552c7744"
+source = "git+https://github.com/Ruin0x11/ncollide#29d582ffcbc68ae1755e9764d4dbdf5f7699ef12"
 dependencies = [
  "alga 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "nalgebra 0.14.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -575,7 +575,7 @@ dependencies = [
 [[package]]
 name = "ncollide_transformation"
 version = "0.8.0"
-source = "git+https://github.com/Ruin0x11/ncollide#d32c63690148e2ce30ad0c996a8eefab552c7744"
+source = "git+https://github.com/Ruin0x11/ncollide#29d582ffcbc68ae1755e9764d4dbdf5f7699ef12"
 dependencies = [
  "alga 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "approx 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -590,7 +590,7 @@ dependencies = [
 [[package]]
 name = "ncollide_utils"
 version = "0.8.0"
-source = "git+https://github.com/Ruin0x11/ncollide#d32c63690148e2ce30ad0c996a8eefab552c7744"
+source = "git+https://github.com/Ruin0x11/ncollide#29d582ffcbc68ae1755e9764d4dbdf5f7699ef12"
 dependencies = [
  "alga 0.5.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "approx 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",

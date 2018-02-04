@@ -53,16 +53,31 @@ impl Viewport {
         self.make_projection_matrix(self.camera)
     }
 
-    fn make_projection_matrix(&self, offset: (i32, i32)) -> [[f32; 4]; 4] {
+    //fn make_projection_matrix(&self, offset: (i32, i32)) -> [[f32; 4]; 4] {
+    //    let (w, h) = (self.size.0 as f32, self.size.1 as f32);
+    //    let (x, y) = (offset.0 as f32, offset.1 as f32);
+
+    //    let left = x;
+    //    let right = x + w;
+    //    let bottom = y + h;
+    //    let top = y;
+
+    //    cgmath::ortho(left, right, bottom, top, -1.0, 1.0).into()
+    //}
+
+    pub fn make_projection_matrix(&self, offset: (i32, i32)) -> [[f32; 4]; 4] {
+        let (x, y) = (self.camera.0 as f32, self.camera.1 as f32);
         let (w, h) = (self.size.0 as f32, self.size.1 as f32);
-        let (x, y) = (offset.0 as f32, offset.1 as f32);
+        let zoom = 1.0;
+        let pixels_per_unit = 1.0;
 
-        let left = x;
-        let right = x + w;
-        let bottom = y + h;
-        let top = y;
+        let effective_width = w / (zoom * pixels_per_unit);
+        let effective_height = h / (zoom * pixels_per_unit);
+        let half_width = effective_width / 2.0;
+        let half_height = effective_height / 2.0;
 
-        cgmath::ortho(left, right, bottom, top, -1.0, 1.0).into()
+        //cgmath::ortho(-half_width, half_width, -half_height, half_height, -100.0, 100.0).into()
+        cgmath::ortho(x - half_width, x + half_width, y + half_height, y - half_height, -100.0, 100.0).into()
     }
 
     fn scissor(&self, area: (u32, u32, u32, u32)) -> glium::Rect {

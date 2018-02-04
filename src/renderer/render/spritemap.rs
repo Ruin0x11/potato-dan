@@ -94,7 +94,7 @@ impl SpriteMap {
 }
 
 impl<'a> Renderable for SpriteMap {
-    fn render<F, S>(&self, _display: &F, target: &mut S, viewport: &Viewport, _time: u64)
+    fn render<F, S>(&self, _display: &F, target: &mut S, viewport: &Viewport, time: u64)
         where F: glium::backend::Facade, S: glium::Surface {
 
         let (proj, scissor) = viewport.main_window();
@@ -109,6 +109,7 @@ impl<'a> Renderable for SpriteMap {
                     .wrap_function(glium::uniforms::SamplerWrapFunction::Clamp)
                     .minify_filter(glium::uniforms::MinifySamplerFilter::Nearest)
                     .magnify_filter(glium::uniforms::MagnifySamplerFilter::Nearest),
+                time: time as u32,
             };
 
             let params = glium::DrawParameters {
@@ -151,7 +152,6 @@ fn make_sprites(world: &World, viewport: &Viewport) -> Vec<(DrawSprite, (i32, i3
     {
         let mut push_sprite = |variant: u32, pos: (i32, i32), kind: &str| {
             let sprite = DrawSprite { kind: kind.to_string(), variant: variant };
-            let pos = (pos.0 - start_corner.0, pos.1 - start_corner.1);
             res.push((sprite, pos));
         };
 
@@ -161,8 +161,8 @@ fn make_sprites(world: &World, viewport: &Viewport) -> Vec<(DrawSprite, (i32, i3
             }
 
             let pos = world.ecs().positions.get_or_err(*entity);
-            let screen_x = (pos.x * FACTOR) as i32;
-            let screen_y = (pos.z * FACTOR) as i32;
+            let screen_x = (pos.x * 32.0) as i32;
+            let screen_y = (pos.z * 32.0) as i32;
 
             match world.ecs().appearances.get(*entity) {
                 Some(&Appearance::Chara(ref chara)) => {
