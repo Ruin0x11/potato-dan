@@ -7,8 +7,10 @@ Ecs! {
     healths: components::Health,
     names: components::Name,
     physics: components::Physics,
-    positions: point::Point,
+    positions: components::Position,
     charas: components::Chara,
     cameras: components::Camera,
     appearances: components::Appearance,
+    bullets: components::Bullet,
+    guns: components::Gun,
 }

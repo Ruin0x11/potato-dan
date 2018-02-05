@@ -37,8 +37,8 @@ impl Health {
         self.hit_points as f32 / self.max_hit_points as f32
     }
 
-    pub fn hurt(&mut self, amount: u32) {
-        self.hit_points -= amount as i32;
+    pub fn hurt(&mut self, amount: i32) {
+        self.hit_points -= amount;
     }
 
     pub fn kill(&mut self) {
@@ -58,11 +58,32 @@ fn none() -> Option<CollisionObjectHandle> {
 pub enum PhysicsShape {
     Chara,
     Wall,
+    Bullet,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+pub enum PhysicsKind {
+    Physical,
+    Bullet,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Position {
+    pub pos: Point,
+    pub dir: Direction,
+}
+
+impl Position {
+    pub fn new(pos: Point) -> Self {
+        Position {
+            pos: pos,
+            dir: Direction::S,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Physics {
-    pub direction: Direction,
     pub dx: f32,
     pub dy: f32,
     pub dz: f32,
@@ -71,6 +92,7 @@ pub struct Physics {
     pub accel_z: f32,
     pub movement_frames: u32,
     pub shape: PhysicsShape,
+    pub kind: PhysicsKind,
 
     #[serde(skip_serializing)]
     #[serde(skip_deserializing)]
@@ -79,9 +101,8 @@ pub struct Physics {
 }
 
 impl Physics {
-    pub fn new(shape: PhysicsShape) -> Self {
+    pub fn new(shape: PhysicsShape, kind: PhysicsKind) -> Self {
         Physics {
-            direction: Direction::S,
             dx: 0.0,
             dy: 0.0,
             dz: 0.0,
@@ -90,8 +111,15 @@ impl Physics {
             accel_z: 0.0,
             movement_frames: 0,
             shape: shape,
+            kind: kind,
             handle: None,
         }
+    }
+
+    pub fn impulse(&mut self, direction: Point) {
+        self.dx += direction.x;
+        self.dy += direction.y;
+        self.dz += direction.z;
     }
 }
 
@@ -113,12 +141,9 @@ impl Camera {
         if !world.contains(self.following) {
             return None;
         }
-        Some(world.ecs().positions.get_or_err(self.following).clone())
+        Some(world.ecs().positions.get_or_err(self.following).pos.clone())
     }
 }
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Chara;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CharaAppearance {
@@ -168,6 +193,7 @@ pub struct ObjectAppearance {
     pub kind: String,
     pub offset: (i32, i32),
     pub variant: u32,
+    pub directional: bool,
 }
 
 impl ObjectAppearance {
@@ -175,7 +201,8 @@ impl ObjectAppearance {
         ObjectAppearance {
             kind: kind.to_string(),
             offset: offset,
-            variant: variant
+            variant: variant,
+            directional: false
         }
     }
 }
@@ -184,6 +211,7 @@ impl ObjectAppearance {
 pub enum Appearance {
     Chara(CharaAppearance),
     Object(ObjectAppearance),
+    Bullet,
 }
 
 impl Appearance {
@@ -193,5 +221,35 @@ impl Appearance {
 
     pub fn new(kind: &str, offset: (i32, i32), variant: u32) -> Self {
         Appearance::Object(ObjectAppearance::new(kind, offset, variant))
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Bullet {
+    pub damage: i32,
+    pub time_left: f32,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
+pub enum BulletKind {
+    NineMm,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Gun {
+    pub chara: Option<Entity>,
+    pub bullet: BulletKind,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Chara {
+    pub gun: Option<Entity>
+}
+
+impl Chara {
+    pub fn new() -> Self {
+        Chara {
+            gun: None
+        }
     }
 }

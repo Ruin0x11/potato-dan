@@ -11,9 +11,9 @@ use point;
 use point::*;
 
 use ncollide::world::{CollisionGroups, CollisionObject3, CollisionWorld, GeometricQueryType};
-use nalgebra::{self, Isometry3, Point3, Translation3, Vector3};
+use nalgebra::{self, Isometry3, Point3, Translation3, Vector3, Matrix3x1};
 use ncollide::narrow_phase::{ContactAlgorithm3};
-use ncollide::shape::{Cylinder, Cuboid, Plane, ShapeHandle3};
+use ncollide::shape::{Ball, Cylinder, Cuboid, Plane, ShapeHandle3};
 use ncollide::query::{self, Proximity};
 use ncollide::events::{ContactEvents};
 
@@ -24,6 +24,7 @@ pub struct World {
     pub camera: Option<Entity>,
     collision_world: CollisionWorld<Point, Isometry3<f32>, Entity>,
     shapes: HashMap<PhysicsShape, CollisionData>,
+    events: Vec<(Event, Entity)>,
 }
 
 #[derive(Clone)]
@@ -37,7 +38,7 @@ fn shape_handles() -> HashMap<PhysicsShape, CollisionData> {
 
     let mut groups = CollisionGroups::new();
     groups.set_membership(&[1]);
-    groups.set_whitelist(&[1, 2]);
+    groups.set_whitelist(&[1, 2, 3]);
     groups.set_blacklist(&[]);
     map.insert(PhysicsShape::Chara, CollisionData {
         shape: ShapeHandle3::new(Cylinder::new(0.5, 0.5)),
@@ -46,10 +47,20 @@ fn shape_handles() -> HashMap<PhysicsShape, CollisionData> {
 
     let mut groups = CollisionGroups::new();
     groups.set_membership(&[2]);
-    groups.set_whitelist(&[1]);
+    groups.set_whitelist(&[1, 3]);
     groups.set_blacklist(&[2]);
     map.insert(PhysicsShape::Wall, CollisionData {
         shape: ShapeHandle3::new(Cuboid::new(Vector3::new(0.5, 10.0, 0.5))),
+        groups: groups,
+    });
+
+
+    let mut groups = CollisionGroups::new();
+    groups.set_membership(&[3]);
+    groups.set_whitelist(&[1, 2]);
+    groups.set_blacklist(&[]);
+    map.insert(PhysicsShape::Bullet, CollisionData {
+        shape: ShapeHandle3::new(Ball::new(0.5)),
         groups: groups,
     });
 
@@ -65,11 +76,15 @@ impl World {
             camera: None,
             collision_world: collision_world,
             shapes: shape_handles(),
+            events: Vec::new(),
         };
 
 
         let player = world.spawn(prefab::mob("Dood"), Point::new(0.0, 0.0, 0.0));
         let camera = world.spawn(Loadout::new().c(Camera::new(player)), point::zero());
+
+        let gun = world.spawn(prefab::gun(), point::zero());
+        world.equip(player, gun);
 
         world.player = Some(player);
         world.camera = Some(camera);
@@ -99,7 +114,7 @@ impl World {
             if !self.contains(cam.following) || !self.ecs().positions.has(cam.following) {
                 None
             } else {
-                self.ecs().positions.get(cam.following).cloned()
+                self.ecs().positions.get(cam.following).cloned().map(|p| p.pos)
             }
         })
     }
@@ -111,7 +126,7 @@ impl World {
     }
 
     pub fn spawn(&mut self, mut loadout: Loadout, pos: Point) -> Entity {
-        loadout = loadout.c(pos);
+        loadout = loadout.c(Position::new(pos));
 
         let entity = loadout.make(&mut self.ecs);
 
@@ -123,7 +138,7 @@ impl World {
             let pos = self.ecs.positions.get_or_err(entity).clone();
             let mut ball_groups = CollisionGroups::new();
             ball_groups.set_membership(&[1]);
-            let obj_pos = Isometry3::new(Vector3::new(pos.x, pos.y, pos.z), nalgebra::zero());
+            let obj_pos = Isometry3::new(Vector3::new(pos.pos.x, pos.pos.y, pos.pos.z), nalgebra::zero());
             let handle = self.collision_world.add(obj_pos,
                                                   collision_data.shape,
                                                   collision_data.groups,
@@ -135,6 +150,17 @@ impl World {
         }
 
         entity
+    }
+
+    pub fn equip(&mut self, chara: Entity, gun: Entity) {
+        {
+            let mut chara = self.ecs.charas.get_mut_or_err(chara);
+            chara.gun = Some(gun);
+        }
+        {
+            let mut gun = self.ecs.guns.get_mut_or_err(gun);
+            gun.chara = Some(chara);
+        }
     }
 
     pub fn remove(&mut self, entity: Entity) {
@@ -179,7 +205,7 @@ impl World {
                         // not been updated yet, so changing the position here would be an error.
                         continue;
                     }
-                    let pos = Isometry3::new(Vector3::new(pos.x, pos.y, pos.z), nalgebra::zero());
+                    let pos = Isometry3::new(Vector3::new(pos.pos.x, pos.pos.y, pos.pos.z), nalgebra::zero());
                     self.collision_world.set_position(handle, pos);
                 }
             }
@@ -192,29 +218,63 @@ impl World {
     }
 
     fn update_physics_to_world(&mut self) {
+        let mut vec = Vec::new();
         for (e1, e2, ca) in self.collision_world.contact_pairs() {
             let mut contacts = Vec::new();
             ca.contacts(&mut contacts);
             for contact in contacts {
-                let mut move_vec = contact.normal.unwrap() * contact.depth * -0.5;
-                {
-                    if self.ecs.physics.has(*e1.data()) {
-                        if let Some(p1) = self.ecs.positions.get_mut(*e1.data()) {
-                            p1.x += move_vec.x;
-                            p1.z += move_vec.z;
-                        }
+                let move_vec = contact.normal.unwrap() * contact.depth * -0.5;
+                let move_vec_b = move_vec * -1.0;
+                vec.push((*e1.data(), *e2.data(), move_vec, move_vec_b));
+            }
+        }
+
+        for (a, b, m1, m2) in vec {
+            self.collide_two(a, b, &m1);
+            self.collide_two(b, a, &m2);
+        }
+    }
+
+    fn collide_two(&mut self, a: Entity, b: Entity, move_vec: &Matrix3x1<f32>) {
+        if !self.ecs.bullets.has(a) && !self.ecs.bullets.has(b) {
+            if let Some(pos) = self.ecs.positions.get_mut(a) {
+                pos.pos.x += move_vec.x;
+                pos.pos.z += move_vec.z;
+            }
+        }
+
+        if self.ecs().bullets.has(a) {
+            if self.ecs().charas.has(b) {
+                let damage = self.ecs().bullets.get_or_err(a).damage;
+                self.push_event(Event::Hurt(damage), b);
+                self.push_event(Event::Destroy, a);
+            }
+        }
+    }
+
+    pub fn push_event(&mut self, event: Event, entity: Entity) {
+        self.events.push((event, entity));
+    }
+
+
+    pub fn handle_events(&mut self) {
+        while let Some((event, entity)) = self.events.pop() {
+            match event {
+                Event::Hurt(damage) => {
+                    if let Some(health) = self.ecs_mut().healths.get_mut(entity) {
+                        health.hurt(damage);
+                        println!("Hit {} {}", health.hit_points, damage)
                     }
                 }
-                move_vec *= -1.0;
-                {
-                    if self.ecs.physics.has(*e2.data()) {
-                        if let Some(p2) = self.ecs.positions.get_mut(*e2.data()) {
-                            p2.x += move_vec.x;
-                            p2.z += move_vec.z;
-                        }
-                    }
+                Event::Destroy => {
+                    //destroy
                 }
             }
         }
     }
+}
+
+pub enum Event {
+    Hurt(i32)
+    Destroy,
 }

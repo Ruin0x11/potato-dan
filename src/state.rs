@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use GameContext;
+use debug;
 use engine::keys::KeyCode;
 use world::World;
 use ecs::prefab;
@@ -40,6 +41,7 @@ impl GameState {
 pub enum Command {
     Move(Direction),
     Jump,
+    Shoot,
     Wait,
     Quit,
     ReloadShaders,
@@ -88,6 +90,11 @@ pub fn get_commands(input: &HashMap<KeyCode, bool>) -> Vec<Command> {
         commands.push(Command::ReloadShaders);
     }
 
+    let f = input.get(&KeyCode::F).map_or(false, |b| *b);
+    if f {
+        commands.push(Command::Shoot);
+    }
+
     let q = input.get(&KeyCode::Q).map_or(false, |b| *b);
     if q {
         commands.push(Command::Restart);
@@ -119,57 +126,136 @@ fn step_physics(world: &mut World) {
     }
 
     for entity in objects {
-        let mut set_to_ground = false;
-        let mut dx;
-        let mut dy;
-        let mut dz;
-        {
-            let pos = *world.ecs().positions.get_or_err(entity);
-            let mut phys = world.ecs_mut().physics.get_mut_or_err(entity);
-            phys.dx += phys.accel_x;
-            phys.dy -= phys.accel_y;
-            phys.dz += phys.accel_z;
-            phys.dx = util::clamp(phys.dx, -0.1, 0.1);
-            phys.dz = util::clamp(phys.dz, -0.1, 0.1);
-            phys.dx *= 0.8;
-            phys.accel_y -= 0.01;
-            phys.dz *= 0.8;
+        let kind = world.ecs_mut().physics.get_mut_or_err(entity).kind;
+        match kind {
+            PhysicsKind::Physical => {
+                let mut set_to_ground = false;
+                let mut dx;
+                let mut dy;
+                let mut dz;
+                {
+                    let pos = world.ecs().positions.get_or_err(entity).pos;
+                    let mut phys = world.ecs_mut().physics.get_mut_or_err(entity);
+                    phys.dx += phys.accel_x;
+                    phys.dy -= phys.accel_y;
+                    phys.dz += phys.accel_z;
+                    phys.dx = util::clamp(phys.dx, -0.1, 0.1);
+                    phys.dz = util::clamp(phys.dz, -0.1, 0.1);
+                    phys.dx *= 0.8;
+                    phys.accel_y -= 0.01;
+                    phys.dz *= 0.8;
 
-            if phys.dx.abs() < 0.01 {
-                phys.dx = 0.0;
-            }
-            if phys.dz.abs() < 0.01 {
-                phys.dz = 0.0;
-            }
-            if (pos.y + phys.dy) > 0.01 {
-                phys.dy = 0.0;
-                phys.accel_y = 0.0;
-                set_to_ground = true
-            }
+                    if phys.dx.abs() < 0.01 {
+                        phys.dx = 0.0;
+                    }
+                    if phys.dz.abs() < 0.01 {
+                        phys.dz = 0.0;
+                    }
+                    if (pos.y + phys.dy) > 0.01 {
+                        phys.dy = 0.0;
+                        phys.accel_y = 0.0;
+                        set_to_ground = true
+                    }
 
-            dx = phys.dx;
-            dy = phys.dy;
-            dz = phys.dz;
+                    dx = phys.dx;
+                    dy = phys.dy;
+                    dz = phys.dz;
+                }
+
+                let mut pos = world.ecs_mut().positions.get_mut_or_err(entity);
+                pos.pos.x += dx;
+                if set_to_ground {
+                    pos.pos.y = 0.0;
+                } else {
+                    pos.pos.y += dy;
+                }
+                pos.pos.z += dz;
+            },
+            PhysicsKind::Bullet => {
+                let mut dx;
+                let mut dy;
+                let mut dz;
+                {
+                    let pos = world.ecs().positions.get_or_err(entity).pos;
+                    let mut phys = world.ecs_mut().physics.get_mut_or_err(entity);
+                    dx = phys.dx;
+                    dy = phys.dy;
+                    dz = phys.dz;
+                }
+
+                let mut pos = world.ecs_mut().positions.get_mut_or_err(entity);
+                pos.pos.x += dx;
+                pos.pos.y += dy;
+                pos.pos.z += dz;
+            }
         }
-
-        let mut pos = world.ecs_mut().positions.get_mut_or_err(entity);
-        pos.x += dx;
-        if set_to_ground {
-            pos.y = 0.0;
-        } else {
-            pos.y += dy;
-        }
-        pos.z += dz;
     }
 }
 
-use debug;
+fn step_bullet(world: &mut World) {
+    
+}
+
+fn step_gun(world: &mut World) {
+    let mut guns = Vec::new();
+    for entity in world.entities() {
+        if world.ecs().guns.has(*entity) {
+            guns.push(*entity);
+        }
+    }
+
+    for gun in guns {
+        {
+            let active = {
+                let gun_compo = world.ecs().guns.get_or_err(gun);
+                if let Some(holder) = gun_compo.chara {
+                    world.contains(holder)
+                } else {
+                    false
+                }
+            };
+
+            if !active {
+                let mut gun_compo = world.ecs_mut().guns.get_mut_or_err(gun);
+                gun_compo.chara = None;
+            }
+        }
+
+        let mut holder = None;
+        let mut change = {
+            let gun_compo = world.ecs().guns.get_or_err(gun);
+            holder = gun_compo.chara;
+            if let Some(h) = holder {
+                world.contains(h)
+            } else {
+                false
+            }
+        };
+
+        debug::add_text(format!("{:?} {}", holder, change));
+        if holder.is_some() && change {
+            let holder_dir = world.ecs().positions.get_or_err(holder.unwrap()).dir;
+            let holder_pos = *world.ecs().positions.get_or_err(holder.unwrap()).pos;
+
+            let mut gun_pos = world.ecs_mut().positions.get_mut_or_err(gun);
+            gun_pos.dir = holder_dir;
+            let p2: &mut Point = &mut gun_pos.pos;
+            let p: Point = Point::new(holder_pos.x, holder_pos.y, holder_pos.z);
+            p2.x = p.x;
+            p2.y = p.y;
+            p2.z = p.z;
+        }
+    }
+}
 
 fn process(context: &mut GameContext) {
     update_camera(context);
     context.state.world.update_physics();
 
-    step_physics(&mut context.state.world)
+    step_physics(&mut context.state.world);
+    step_gun(&mut context.state.world);
+    // TODO: move here
+    context.state.world.handle_events();
 }
 
 fn update_camera(context: &mut GameContext) {
@@ -185,7 +271,11 @@ fn update_camera(context: &mut GameContext) {
 
     let mut pos = context.state.world.ecs_mut().positions.get_mut_or_err(camera_entity);
     if let Some(p) = following_pos {
-        *pos = p;
+        let p2: &mut Point = &mut pos.pos;
+        let p: Point = Point::new(p.x, p.y, p.z);
+        p2.x = p.x;
+        p2.y = p.y;
+        p2.z = p.z;
     }
 }
 
@@ -201,25 +291,30 @@ fn update_look(context: &mut GameContext, mouse: &(i32, i32)) {
     let dir = Direction::from_points(center, mouse);
 
     let player = context.state.world.player().unwrap();
-    let mut phys = context.state.world.ecs_mut().physics.get_mut_or_err(player);
-    phys.direction = dir;
+    let mut pos = context.state.world.ecs_mut().positions.get_mut_or_err(player);
+    pos.dir = dir;
 }
 
 fn run_command(context: &mut GameContext, command: Command) {
     match command {
         Command::Move(dir) => {
             let player = context.state.world.player().unwrap();
-            let mut phys = context.state.world.ecs_mut().physics.get_mut_or_err(player);
 
-            let offset = dir.to_movement_offset();
-            phys.direction = dir;
-            phys.accel_x = offset.0 as f32 * 0.05;
-            phys.accel_z = offset.1 as f32 * 0.05;
-            phys.movement_frames += 1;
+            {
+                let mut phys = context.state.world.ecs_mut().physics.get_mut_or_err(player);
+
+                let offset = dir.to_movement_offset();
+                phys.accel_x = offset.0 as f32 * 0.05;
+                phys.accel_z = offset.1 as f32 * 0.05;
+                phys.movement_frames += 1;
+            }
+            {
+                let mut pos = context.state.world.ecs_mut().positions.get_mut_or_err(player);
+                pos.dir = dir;
+            }
         },
         Command::Jump => {
             let player = context.state.world.player().unwrap();
-            let pos = *context.state.world.ecs().positions.get_or_err(player);
             let mut phys = context.state.world.ecs_mut().physics.get_mut_or_err(player);
 
             if phys.accel_y > -0.1 {
@@ -227,6 +322,26 @@ fn run_command(context: &mut GameContext, command: Command) {
             }
         }
         Command::ReloadShaders => renderer::with_mut(|rc| rc.reload_shaders()),
+        Command::Shoot => {
+            let player = context.state.world.player().unwrap();
+            let kind = {
+                let chara = context.state.world.ecs().charas.get_or_err(player);
+                match chara.gun {
+                    Some(gun) => {
+                        let gun = context.state.world.ecs().guns.get_or_err(gun);
+                        Some(gun.bullet)
+                    },
+                    None => None,
+                }
+            };
+
+            if let Some(kind) = kind {
+                let pos = context.state.world.ecs().positions.get_or_err(player).pos;
+                let bullet = context.state.world.spawn(prefab::bullet(), pos);
+                let mut phys = context.state.world.ecs_mut().physics.get_mut_or_err(bullet);
+                phys.impulse(Point::new(1.0, 0.0, 0.0));
+            }
+        }
         Command::Restart => restart_game(context),
         _ => {
             let player = context.state.world.player().unwrap();

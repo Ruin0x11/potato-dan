@@ -164,8 +164,9 @@ fn make_sprites(world: &World, viewport: &Viewport) -> Vec<(DrawSprite, (i32, i3
             }
 
             let pos = world.ecs().positions.get_or_err(*entity);
-            let screen_x = (pos.x * 64.0) as i32;
-            let screen_y = (pos.z * 64.0) as i32;
+            let ord = pos.dir.ordinal() as u32;
+            let screen_x = (pos.pos.x * 64.0) as i32;
+            let screen_y = (pos.pos.z * 64.0) as i32;
 
             let mut push_sprite = |variant: u32, pos: (i32, i32), kind: &str| {
                 let sprite = DrawSprite { kind: kind.to_string(), variant: variant };
@@ -177,11 +178,9 @@ fn make_sprites(world: &World, viewport: &Viewport) -> Vec<(DrawSprite, (i32, i3
             match world.ecs().appearances.get(*entity) {
                 Some(&Appearance::Chara(ref chara)) => {
                     let phys = world.ecs().physics.get_or_err(*entity);
-                    let tail_occluded = phys.direction != Direction::N &&
-                        phys.direction != Direction::NE &&
-                        phys.direction != Direction::NW;
-                    let ord = phys.direction.ordinal() as u32;
-
+                    let tail_occluded = pos.dir != Direction::N &&
+                        pos.dir != Direction::NE &&
+                        pos.dir != Direction::NW;
                     let tail_kind = (chara.tail_kind % TAIL_COUNT) + ord * TAIL_COUNT;
                     let body_kind = (chara.body_kind % BODY_COUNT) + ord * BODY_COUNT;
                     let mut feet_kind = (chara.feet_kind % FEET_COUNT) + ord * FEET_COUNT;
@@ -212,7 +211,12 @@ fn make_sprites(world: &World, viewport: &Viewport) -> Vec<(DrawSprite, (i32, i3
                     }
                 },
                 Some(&Appearance::Object(ref object)) => {
-                    push_sprite(object.variant, object.offset, &object.kind);
+                    let variant = if object.directional {
+                        (object.variant % 21) + ord * 21
+                    } else {
+                        object.variant
+                    };
+                    push_sprite(variant, object.offset, &object.kind);
                 },
                 _ => (),
             }

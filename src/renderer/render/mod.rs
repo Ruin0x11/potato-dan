@@ -198,9 +198,9 @@ impl RenderContext {
         self.spritemap
             .render(&self.backend, &mut target, &self.viewport, millis);
 
-        //self.primitives.redraw(&self.backend, millis);
-        //self.primitives
-        //    .render(&self.backend, &mut target, &self.viewport, millis);
+        self.primitives.redraw(&self.backend, millis);
+        self.primitives
+            .render(&self.backend, &mut target, &self.viewport, millis);
 
         self.ui
             .render(&self.backend, &mut target, &self.viewport, millis);

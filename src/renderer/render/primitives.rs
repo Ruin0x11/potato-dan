@@ -120,10 +120,11 @@ impl RenderUpdate for Primitives {
                 let scale = match world.ecs().physics.get_or_err(*entity).shape {
                     PhysicsShape::Chara => (1.0, 1.0, 1.0),
                     PhysicsShape::Wall => (1.0, 20.0, 1.0),
+                    PhysicsShape::Bullet => (0.3, 0.3, 0.3),
                 };
 
                 prims.push(DrawPrimitive {
-                    pos: (pos.x - camera.x + 0.5, pos.y, pos.z - camera.z + 0.5),
+                    pos: (pos.pos.x - camera.x + 0.5, pos.pos.y, pos.pos.z - camera.z + 0.5),
                     scale: scale,
                 });
             }
