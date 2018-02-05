@@ -9,7 +9,7 @@ use renderer::render::viewport::FACTOR;
 #[derive(Copy, Clone, Debug)]
 struct Instance {
     tile_idx: usize,
-    map_coord: [i32; 2],
+    map_coord: [i32; 3],
     inner_offset: [i32; 2],
     tex_offset: [f32; 2],
     tex_ratio: [f32; 2],
@@ -19,7 +19,7 @@ struct Instance {
 implement_vertex!(Instance, map_coord, inner_offset, tex_offset, tex_ratio, sprite_size);
 
 pub struct SpriteMap {
-    sprites: Vec<(DrawSprite, (i32, i32, i32, i32))>,
+    sprites: Vec<(DrawSprite, (i32, i32, i32, i32, i32))>,
 
     indices: glium::IndexBuffer<u16>,
     vertices: glium::VertexBuffer<Vertex>,
@@ -76,7 +76,7 @@ impl SpriteMap {
                     texture_idx == pass
                 })
                 .map(|&(ref sprite, pos)| {
-                    let (x, y, ix, iy) = pos;
+                    let (x, y, z, ix, iy) = pos;
 
                     let (tx, ty) = self.tile_atlas.get_texture_offset(&sprite.kind, sprite.variant);
                     let (sx, sy) = self.tile_atlas.get_tile_texture_size(&sprite.kind);
@@ -89,7 +89,7 @@ impl SpriteMap {
                     let tile_idx = self.tile_atlas.get_tile_index(&sprite.kind);
 
                     Instance { tile_idx: tile_idx,
-                               map_coord: [x, y],
+                               map_coord: [x, z, y * 2],
                                inner_offset: [ix, iy],
                                tex_offset: [tx, ty],
                                tex_ratio: tex_ratio,
@@ -152,7 +152,7 @@ const HAIR_COUNT: u32 = 28;
 const EAR_COUNT: u32 = 10;
 const FACE_COUNT: u32 = 9;
 
-fn make_sprites(world: &World, viewport: &Viewport) -> Vec<(DrawSprite, (i32, i32, i32, i32))> {
+fn make_sprites(world: &World, viewport: &Viewport) -> Vec<(DrawSprite, (i32, i32, i32, i32, i32))> {
     let mut res = Vec::new();
 
     let camera = world.camera_pos().unwrap_or(point::zero());
@@ -166,13 +166,15 @@ fn make_sprites(world: &World, viewport: &Viewport) -> Vec<(DrawSprite, (i32, i3
             let pos = world.ecs().positions.get_or_err(*entity);
             let ord = pos.cardinal_dir().ordinal() as u32;
             let screen_x = (pos.pos.x * 64.0) as i32;
-            let screen_y = (pos.pos.z * 64.0) as i32;
+            let screen_y = (pos.pos.y) as i32;
+            let screen_z = (pos.pos.z * 64.0) as i32;
 
             let mut push_sprite = |variant: u32, pos: (i32, i32), kind: &str| {
                 let sprite = DrawSprite { kind: kind.to_string(), variant: variant };
                 let x = screen_x - (camera.x * 64.0) as i32;
-                let y = screen_y - (camera.z * 64.0) as i32;
-                res.push((sprite, (x, y, pos.0, pos.1)));
+                let y = screen_y;
+                let z = screen_z - (camera.z * 64.0) as i32;
+                res.push((sprite, (x, y, z, pos.0, pos.1)));
             };
 
             match world.ecs().appearances.get(*entity) {
@@ -237,6 +239,7 @@ impl RenderUpdate for SpriteMap {
     }
 
     fn redraw<F: Facade>(&mut self, display: &F, _msecs: u64) {
+        // TODO: Only remake when invalid!
         if !self.valid {
             self.make_instances(display);
             self.valid = true;

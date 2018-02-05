@@ -5,7 +5,7 @@ pub fn mob(name: &str) -> Loadout {
     Loadout::new()
         .c(Appearance::new_chara())
         .c(Name::new(name))
-        .c(Health::new(1000))
+        .c(Health::new(100))
         .c(Physics::new(PhysicsShape::Chara, PhysicsKind::Physical))
         .c(Chara::new())
 }
@@ -27,12 +27,12 @@ pub fn bullet() -> Loadout {
     Loadout::new()
         .c(Appearance::Bullet)
         .c(Physics::new(PhysicsShape::Bullet, PhysicsKind::Bullet))
-        .c(Bullet { damage: 1, time_left: 0.0 })
+        .c(Bullet { damage: 1, time_left: 60.0 })
 }
 
 pub fn wall() -> Loadout {
     Loadout::new()
         .c(Appearance::new("wall", (0, -70), 0))
-        .c(Health::new(10000))
+        .c(Health::new(100))
         .c(Physics::new(PhysicsShape::Wall, PhysicsKind::Physical))
 }

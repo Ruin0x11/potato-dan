@@ -25,6 +25,7 @@ pub struct World {
     collision_world: CollisionWorld<Point, Isometry3<f32>, Entity>,
     shapes: HashMap<PhysicsShape, CollisionData>,
     events: Vec<(Event, Entity)>,
+    kill_list: Vec<Entity>,
 }
 
 #[derive(Clone)]
@@ -77,8 +78,8 @@ impl World {
             collision_world: collision_world,
             shapes: shape_handles(),
             events: Vec::new(),
+            kill_list: Vec::new(),
         };
-
 
         let player = world.spawn(prefab::mob("Dood"), Point::new(0.0, 0.0, 0.0));
         let camera = world.spawn(Loadout::new().c(Camera::new(player)), point::zero());
@@ -179,6 +180,12 @@ impl World {
         self.ecs_mut().healths.map_mut(|h| h.kill(), entity);
     }
 
+    pub fn purge_dead(&mut self) {
+        while let Some(e) = self.kill_list.pop() {
+            self.remove(e);
+        }
+    }
+
     pub fn update_physics(&mut self) {
         self.update_world_to_physics();
         self.update_collision_world();
@@ -247,7 +254,8 @@ impl World {
             if self.ecs().charas.has(b) {
                 let damage = self.ecs().bullets.get_or_err(a).damage;
                 self.push_event(Event::Hurt(damage), b);
-                self.push_event(Event::Destroy, a);
+                // TODO: spawn bullet in front, blacklist bullet from other team
+                //self.push_event(Event::Destroy, a);
             }
         }
     }
@@ -267,7 +275,8 @@ impl World {
                     }
                 }
                 Event::Destroy => {
-                    //destroy
+                    println!("destroy {:?}", entity);
+                    self.kill_list.push(entity);
                 }
             }
         }

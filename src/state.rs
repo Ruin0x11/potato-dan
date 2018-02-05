@@ -4,7 +4,7 @@ use GameContext;
 use point;
 use debug;
 use engine::keys::KeyCode;
-use world::World;
+use world::{World, Event};
 use ecs::prefab;
 use ecs::Loadout;
 use ecs::traits::*;
@@ -109,6 +109,12 @@ pub fn get_commands(input: &HashMap<KeyCode, bool>) -> Vec<Command> {
 }
 
 pub fn game_step(context: &mut GameContext, input: &HashMap<KeyCode, bool>, mouse: &(i32, i32)) {
+    let player_alive = context.state.world.player().map_or(false, |p| context.state.world.contains(p));
+    if !player_alive {
+        restart_game(context);
+        return;
+    }
+
     for command in get_commands(input) {
         run_command(context, command);
     }
@@ -116,6 +122,19 @@ pub fn game_step(context: &mut GameContext, input: &HashMap<KeyCode, bool>, mous
     update_look(context, mouse);
 
     process(context);
+}
+
+fn process(context: &mut GameContext) {
+    update_camera(context);
+    context.state.world.update_physics();
+
+    step_physics(&mut context.state.world);
+    step_gun(&mut context.state.world);
+    step_bullet(&mut context.state.world);
+    step_healths(&mut context.state.world);
+    // TODO: move here
+    context.state.world.handle_events();
+    context.state.world.purge_dead();
 }
 
 fn step_physics(world: &mut World) {
@@ -142,9 +161,7 @@ fn step_physics(world: &mut World) {
                     phys.dz += phys.accel_z;
                     phys.dx = util::clamp(phys.dx, -0.1, 0.1);
                     phys.dz = util::clamp(phys.dz, -0.1, 0.1);
-                    phys.dx *= 0.8;
                     phys.accel_y -= 0.01;
-                    phys.dz *= 0.8;
 
                     if phys.dx.abs() < 0.01 {
                         phys.dx = 0.0;
@@ -155,7 +172,9 @@ fn step_physics(world: &mut World) {
                     if (pos.y + phys.dy) > 0.01 {
                         phys.dy = 0.0;
                         phys.accel_y = 0.0;
-                        set_to_ground = true
+                        set_to_ground = true;
+                        phys.dx *= 0.85;
+                        phys.dz *= 0.85;
                     }
 
                     dx = phys.dx;
@@ -189,6 +208,30 @@ fn step_physics(world: &mut World) {
                 pos.pos.y += dy;
                 pos.pos.z += dz;
             }
+        }
+    }
+}
+
+fn step_bullet(world: &mut World) {
+    let mut bullets = Vec::new();
+    for entity in world.entities() {
+        if world.ecs().bullets.has(*entity) {
+            bullets.push(*entity);
+        }
+    }
+
+    for bullet in bullets {
+        let mut remove = false;
+        {
+            let mut bullet_compo = world.ecs_mut().bullets.get_mut_or_err(bullet);
+            bullet_compo.time_left -= 1.0;
+            if bullet_compo.time_left < 0.0 {
+                remove = true;
+            }
+        }
+
+        if remove {
+            world.push_event(Event::Destroy, bullet);
         }
     }
 }
@@ -246,14 +289,19 @@ fn step_gun(world: &mut World) {
     }
 }
 
-fn process(context: &mut GameContext) {
-    update_camera(context);
-    context.state.world.update_physics();
+fn step_healths(world: &mut World) {
+    let mut healths = Vec::new();
+    for entity in world.entities() {
+        if world.ecs().healths.has(*entity) {
+            healths.push(*entity);
+        }
+    }
 
-    step_physics(&mut context.state.world);
-    step_gun(&mut context.state.world);
-    // TODO: move here
-    context.state.world.handle_events();
+    for health in healths {
+        if world.ecs().healths.get_or_err(health).is_dead() {
+            world.push_event(Event::Destroy, health);
+        }
+    }
 }
 
 fn update_camera(context: &mut GameContext) {
