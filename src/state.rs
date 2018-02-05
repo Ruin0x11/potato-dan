@@ -48,33 +48,33 @@ pub enum Command {
 
 pub fn get_commands(input: &HashMap<KeyCode, bool>) -> Vec<Command> {
     let mut commands = Vec::new();
-    let h = input.get(&KeyCode::H).map_or(false, |b| *b);
-    let j = input.get(&KeyCode::J).map_or(false, |b| *b);
-    let k = input.get(&KeyCode::K).map_or(false, |b| *b);
-    let l = input.get(&KeyCode::L).map_or(false, |b| *b);
+    let a = input.get(&KeyCode::A).map_or(false, |b| *b);
+    let w = input.get(&KeyCode::W).map_or(false, |b| *b);
+    let s = input.get(&KeyCode::S).map_or(false, |b| *b);
+    let d = input.get(&KeyCode::D).map_or(false, |b| *b);
 
-    if h && j {
+    if a && s {
         commands.push(Command::Move(Direction::SW));
     }
-    else if h && k {
+    else if a && w {
         commands.push(Command::Move(Direction::NW));
     }
-    else if l && j {
+    else if d && s {
         commands.push(Command::Move(Direction::SE));
     }
-    else if l && k {
+    else if d && w {
         commands.push(Command::Move(Direction::NE));
     }
-    else if h {
+    else if a {
         commands.push(Command::Move(Direction::W));
     }
-    else if j {
+    else if s {
         commands.push(Command::Move(Direction::S));
     }
-    else if k {
+    else if w {
         commands.push(Command::Move(Direction::N));
     }
-    else if l {
+    else if d {
         commands.push(Command::Move(Direction::E));
     }
 
@@ -100,7 +100,9 @@ pub fn get_commands(input: &HashMap<KeyCode, bool>) -> Vec<Command> {
     commands
 }
 
-pub fn game_step(context: &mut GameContext, input: &HashMap<KeyCode, bool>) {
+pub fn game_step(context: &mut GameContext, input: &HashMap<KeyCode, bool>, mouse: &(i32, i32)) {
+    update_look(context, mouse);
+
     for command in get_commands(input) {
         run_command(context, command);
     }
@@ -108,11 +110,7 @@ pub fn game_step(context: &mut GameContext, input: &HashMap<KeyCode, bool>) {
     process(context);
 }
 
-fn process(context: &mut GameContext) {
-    update_camera(context);
-    context.state.world.update_physics();
-
-    let world = &mut context.state.world;
+fn step_physics(world: &mut World) {
     let mut objects = Vec::new();
     for entity in world.entities() {
         if world.ecs().physics.has(*entity) {
@@ -165,6 +163,15 @@ fn process(context: &mut GameContext) {
     }
 }
 
+use debug;
+
+fn process(context: &mut GameContext) {
+    update_camera(context);
+    context.state.world.update_physics();
+
+    step_physics(&mut context.state.world)
+}
+
 fn update_camera(context: &mut GameContext) {
     let camera_entity = context.state.world.camera;
 
@@ -182,11 +189,23 @@ fn update_camera(context: &mut GameContext) {
     }
 }
 
-pub fn restart_game(context: &mut GameContext) {
+fn restart_game(context: &mut GameContext) {
     *context = GameContext::new();
 }
 
-pub fn run_command(context: &mut GameContext, command: Command) {
+fn update_look(context: &mut GameContext, mouse: &(i32, i32)) {
+    let size = renderer::with(|rc| rc.viewport.scaled_size());
+    let center = ((size.0 / 2) as i32, (size.1 / 2) as i32);
+    let mouse = (mouse.0.max(0), mouse.1.max(0));
+
+    let dir = Direction::from_points(center, mouse);
+
+    let player = context.state.world.player().unwrap();
+    let mut phys = context.state.world.ecs_mut().physics.get_mut_or_err(player);
+    phys.direction = dir;
+}
+
+fn run_command(context: &mut GameContext, command: Command) {
     match command {
         Command::Move(dir) => {
             let player = context.state.world.player().unwrap();

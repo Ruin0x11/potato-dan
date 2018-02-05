@@ -27,6 +27,7 @@ extern crate toml;
 #[macro_use]
 mod macros;
 
+mod debug;
 mod ecs;
 mod engine;
 mod graphics;
@@ -62,6 +63,7 @@ fn main() {
 fn game_loop() {
     let mut context = GameContext::new();
     let mut keys = HashMap::new();
+    let mut mouse = (0, 0);
 
     renderer::with_mut(|rc| rc.update(&context.state.world));
 
@@ -103,6 +105,9 @@ fn game_loop() {
                                 }
                             }
                         },
+                        glutin::WindowEvent::CursorMoved { device_id, position, .. } => {
+                            mouse = (position.0 as i32, position.1 as i32);
+                        }
                         _ => (),
                     }
                 },
@@ -126,7 +131,7 @@ fn game_loop() {
 
         // Ensure that the renderer isn't borrowed during the game step, so it can be used in
         // the middle of any game routine (like querying the player for input)
-        state::game_step(&mut context, &keys);
+        state::game_step(&mut context, &keys, &mouse);
 
         renderer::with_mut(|renderer| renderer.update(&context.state.world));
 

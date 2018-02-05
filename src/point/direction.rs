@@ -1,3 +1,4 @@
+use std::f32::consts::PI;
 use std::fmt;
 use std::slice::Iter;
 
@@ -43,6 +44,23 @@ impl fmt::Display for Direction {
 }
 
 impl Direction {
+    pub fn from_points<I: Into<(i32, i32)>>(a: I, b: I) -> Self {
+        let a = a.into();
+        let b = b.into();
+        let y = (b.1 - a.1) as f32;
+        let x = (b.0 - a.0) as f32;
+        let theta = y.atan2(x);
+
+        let pi_over_4 = PI / 4.0;
+        let ordinal = (((y).atan2(x) * 4.0 / PI).round() as i32 + 2) as usize % 8;
+        Direction::from_ordinal(ordinal)
+    }
+
+    pub fn from_ordinal(ordinal: usize) -> Self {
+        let ordinal = ordinal % 8;
+        DIRECTIONS[ordinal]
+    }
+
     pub fn to_movement_offset(&self) -> (i32, i32) {
         match *self {
             Direction::N => (0, -1),

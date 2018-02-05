@@ -44,7 +44,10 @@ impl<'a> TextureAtlasBuilder<'a> {
     pub fn add_texture(&'a mut self, texture_name: &str) -> &'a mut Self {
         let path_str = format!("data/texture/{}.png", &texture_name);
         let path = Path::new(&path_str);
-        let texture = ImageImporter::import_from_file(path).unwrap();
+        let texture = match ImageImporter::import_from_file(path) {
+            Ok(t) => t,
+            Err(e) => panic!("Failed loading texture {} - {}", path.display(), e),
+        };
 
         self.packer.pack_own(path_str.to_string(), texture).unwrap();
 

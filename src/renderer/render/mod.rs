@@ -9,6 +9,7 @@ pub mod spritemap;
 pub mod primitives;
 mod viewport;
 
+use debug;
 use point;
 use self::background::Background;
 use self::spritemap::SpriteMap;
@@ -16,6 +17,7 @@ use self::primitives::Primitives;
 pub use self::viewport::Viewport;
 
 use renderer::RenderUpdate;
+use renderer::ui::*;
 
 use glium;
 use glium::glutin;
@@ -122,6 +124,7 @@ pub struct RenderContext {
     background: Background,
     spritemap: SpriteMap,
     primitives: Primitives,
+    ui: Ui,
 
     pub viewport: Viewport,
     accumulator: FpsAccumulator,
@@ -142,13 +145,7 @@ impl RenderContext {
 
         let display = glium::Display::new(window, context, &events_loop).unwrap();
 
-        let bg = Background::new(&display);
-        let sprite = SpriteMap::new(&display);
-        let prim = Primitives::new(&display);
-
         let scale = display.gl_window().hidpi_factor();
-
-        let accumulator = FpsAccumulator::new();
 
         let viewport = Viewport {
             position: (0, 0),
@@ -157,6 +154,13 @@ impl RenderContext {
             camera: (0.0, 0.0, 0.0),
         };
 
+        let bg = Background::new(&display);
+        let sprite = SpriteMap::new(&display);
+        let prim = Primitives::new(&display);
+        let ui = Ui::new(&display, &viewport);
+
+        let accumulator = FpsAccumulator::new();
+
         RenderContext {
             backend: display,
             events_loop: events_loop,
@@ -164,6 +168,7 @@ impl RenderContext {
             background: bg,
             spritemap: sprite,
             primitives: prim,
+            ui: ui,
 
             accumulator: accumulator,
             viewport: viewport,
@@ -171,8 +176,13 @@ impl RenderContext {
     }
 
     pub fn update(&mut self, world: &World) {
+        if let Some(text) = debug::pop_text() {
+            self.ui.set_text(text);
+        }
+
         self.spritemap.update(world, &self.viewport);
         self.primitives.update(world, &self.viewport);
+        self.ui.update(world, &self.viewport);
     }
 
     pub fn render(&mut self) {
@@ -188,8 +198,11 @@ impl RenderContext {
         self.spritemap
             .render(&self.backend, &mut target, &self.viewport, millis);
 
-        self.primitives.redraw(&self.backend, millis);
-        self.primitives
+        //self.primitives.redraw(&self.backend, millis);
+        //self.primitives
+        //    .render(&self.backend, &mut target, &self.viewport, millis);
+
+        self.ui
             .render(&self.backend, &mut target, &self.viewport, millis);
 
         target.finish().unwrap();
@@ -204,7 +217,7 @@ impl RenderContext {
             camera: self.viewport.camera,
         };
 
-        //self.ui = Ui::new(&self.backend, &self.viewport);
+        self.ui = Ui::new(&self.backend, &self.viewport);
     }
 
     pub fn poll_events<F>(&mut self, callback: F)

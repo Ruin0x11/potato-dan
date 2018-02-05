@@ -169,8 +169,8 @@ fn make_sprites(world: &World, viewport: &Viewport) -> Vec<(DrawSprite, (i32, i3
 
             let mut push_sprite = |variant: u32, pos: (i32, i32), kind: &str| {
                 let sprite = DrawSprite { kind: kind.to_string(), variant: variant };
-                let x = screen_x - (camera.x* 64.0) as i32;
-                let y = screen_y - (camera.z* 64.0) as i32;
+                let x = screen_x - (camera.x * 64.0) as i32;
+                let y = screen_y - (camera.z * 64.0) as i32;
                 res.push((sprite, (x, y, pos.0, pos.1)));
             };
 
@@ -191,7 +191,7 @@ fn make_sprites(world: &World, viewport: &Viewport) -> Vec<(DrawSprite, (i32, i3
                     let face_kind = (chara.face_kind % FACE_COUNT) + ord * FACE_COUNT;
 
                     if tail_occluded {
-                        push_sprite(tail_kind, (0, 0), "tail");
+                        push_sprite(tail_kind, (-32, 32), "tail");
                     }
 
                     push_sprite(body_kind, (0, 0), "body");

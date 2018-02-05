@@ -145,7 +145,7 @@ impl FontTexture {
         let mut space_left = wraplimit_ems - self.text_width_ems(&wrapped);
 
         for word in words.into_iter().skip(1) {
-            let length = self.text_width_ems(&word) + self.text_width_ems(" ");;
+            let length = self.text_width_ems(&word) + self.text_width_ems(" ");
             if length > space_left {
                 lines.push(wrapped);
                 wrapped = word;
@@ -153,6 +153,13 @@ impl FontTexture {
             } else {
                 wrapped.push_str(&format!(" {}", word));
                 space_left -= length;
+            }
+
+            let mut split: Vec<String> = wrapped.split('\n').map(|s| s.to_string()).collect();
+            wrapped = split.pop().unwrap();
+
+            for s in split.into_iter() {
+                lines.push(s);
             }
         }
 

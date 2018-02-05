@@ -62,6 +62,17 @@ impl Viewport {
         self.make_projection_matrix(pixels_per_unit, self.camera)
     }
 
+    pub fn ui_projection(&self) -> [[f32; 4]; 4] {
+        let (w, h) = (self.size.0 as f32, self.size.1 as f32);
+
+        let left = 0.0;
+        let right = w;
+        let bottom = h;
+        let top = 0.0;
+
+        cgmath::ortho(left, right, bottom, top, -1.0, 1.0).into()
+    }
+
     pub fn make_projection_matrix(&self, pixels_per_unit: u32, offset: (f32, f32, f32)) -> [[f32; 4]; 4] {
         let (x, y) = (offset.0, offset.2);
         let (w, h) = (self.size.0 as f32, self.size.1 as f32);

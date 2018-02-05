@@ -1,6 +1,6 @@
 macro_rules! make_global {
     ($name:ident, $global_ty:ty, $maker:expr) => {
-        mod instance {
+        pub mod instance {
             use super::*;
             use std::cell::RefCell;
             thread_local!(static $name: RefCell<$global_ty> = RefCell::new($maker); );

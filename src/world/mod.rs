@@ -115,7 +115,6 @@ impl World {
 
         let entity = loadout.make(&mut self.ecs);
 
-
         if self.ecs.physics.contains(entity) {
             let collision_data = {
                 let phys = self.ecs.physics.get_or_err(entity);
@@ -202,7 +201,6 @@ impl World {
                     if self.ecs.physics.has(*e1.data()) {
                         if let Some(p1) = self.ecs.positions.get_mut(*e1.data()) {
                             p1.x += move_vec.x;
-                            p1.y -= move_vec.y;
                             p1.z += move_vec.z;
                         }
                     }
@@ -212,7 +210,6 @@ impl World {
                     if self.ecs.physics.has(*e2.data()) {
                         if let Some(p2) = self.ecs.positions.get_mut(*e2.data()) {
                             p2.x += move_vec.x;
-                            p2.y -= move_vec.y;
                             p2.z += move_vec.z;
                         }
                     }
