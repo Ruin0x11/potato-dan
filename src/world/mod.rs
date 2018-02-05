@@ -275,6 +275,6 @@ impl World {
 }
 
 pub enum Event {
-    Hurt(i32)
+    Hurt(i32),
     Destroy,
 }

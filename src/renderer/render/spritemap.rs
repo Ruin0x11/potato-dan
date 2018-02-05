@@ -164,7 +164,7 @@ fn make_sprites(world: &World, viewport: &Viewport) -> Vec<(DrawSprite, (i32, i3
             }
 
             let pos = world.ecs().positions.get_or_err(*entity);
-            let ord = pos.dir.ordinal() as u32;
+            let ord = pos.cardinal_dir().ordinal() as u32;
             let screen_x = (pos.pos.x * 64.0) as i32;
             let screen_y = (pos.pos.z * 64.0) as i32;
 
@@ -178,9 +178,9 @@ fn make_sprites(world: &World, viewport: &Viewport) -> Vec<(DrawSprite, (i32, i3
             match world.ecs().appearances.get(*entity) {
                 Some(&Appearance::Chara(ref chara)) => {
                     let phys = world.ecs().physics.get_or_err(*entity);
-                    let tail_occluded = pos.dir != Direction::N &&
-                        pos.dir != Direction::NE &&
-                        pos.dir != Direction::NW;
+                    let tail_occluded = pos.cardinal_dir() != Direction::N &&
+                        pos.cardinal_dir() != Direction::NE &&
+                        pos.cardinal_dir() != Direction::NW;
                     let tail_kind = (chara.tail_kind % TAIL_COUNT) + ord * TAIL_COUNT;
                     let body_kind = (chara.body_kind % BODY_COUNT) + ord * BODY_COUNT;
                     let mut feet_kind = (chara.feet_kind % FEET_COUNT) + ord * FEET_COUNT;

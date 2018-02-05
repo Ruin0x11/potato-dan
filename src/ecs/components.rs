@@ -70,15 +70,19 @@ pub enum PhysicsKind {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Position {
     pub pos: Point,
-    pub dir: Direction,
+    pub dir: f32,
 }
 
 impl Position {
     pub fn new(pos: Point) -> Self {
         Position {
             pos: pos,
-            dir: Direction::S,
+            dir: 0.0,
         }
+    }
+
+    pub fn cardinal_dir(&self) -> Direction {
+        Direction::from_angle(self.dir)
     }
 }
 

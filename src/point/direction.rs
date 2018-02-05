@@ -2,6 +2,7 @@ use std::f32::consts::PI;
 use std::fmt;
 use std::slice::Iter;
 
+use point;
 use rand::{self, Rng};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -45,15 +46,20 @@ impl fmt::Display for Direction {
 
 impl Direction {
     pub fn from_points<I: Into<(i32, i32)>>(a: I, b: I) -> Self {
-        let a = a.into();
-        let b = b.into();
-        let y = (b.1 - a.1) as f32;
-        let x = (b.0 - a.0) as f32;
-        let theta = y.atan2(x);
+        let theta = point::angle(a, b);
 
+        Direction::from_angle(theta)
+    }
+
+    pub fn from_angle(theta: f32) -> Self {
         let pi_over_4 = PI / 4.0;
-        let ordinal = (((y).atan2(x) * 4.0 / PI).round() as i32 + 2) as usize % 8;
+        let ordinal = ((theta * 4.0 / PI).round() as i32 + 2) as usize % 8;
         Direction::from_ordinal(ordinal)
+    }
+
+    pub fn to_angle(&self) -> f32 {
+        let ordinal = self.ordinal() as i32;
+        ((ordinal - 2) as f32 * PI) / 4.0
     }
 
     pub fn from_ordinal(ordinal: usize) -> Self {

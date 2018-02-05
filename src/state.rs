@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use GameContext;
+use point;
 use debug;
 use engine::keys::KeyCode;
 use world::World;
@@ -108,11 +109,11 @@ pub fn get_commands(input: &HashMap<KeyCode, bool>) -> Vec<Command> {
 }
 
 pub fn game_step(context: &mut GameContext, input: &HashMap<KeyCode, bool>, mouse: &(i32, i32)) {
-    update_look(context, mouse);
-
     for command in get_commands(input) {
         run_command(context, command);
     }
+
+    update_look(context, mouse);
 
     process(context);
 }
@@ -192,10 +193,6 @@ fn step_physics(world: &mut World) {
     }
 }
 
-fn step_bullet(world: &mut World) {
-    
-}
-
 fn step_gun(world: &mut World) {
     let mut guns = Vec::new();
     for entity in world.entities() {
@@ -204,6 +201,7 @@ fn step_gun(world: &mut World) {
         }
     }
 
+    // TODO: MAKE BETTER
     for gun in guns {
         {
             let active = {
@@ -288,11 +286,11 @@ fn update_look(context: &mut GameContext, mouse: &(i32, i32)) {
     let center = ((size.0 / 2) as i32, (size.1 / 2) as i32);
     let mouse = (mouse.0.max(0), mouse.1.max(0));
 
-    let dir = Direction::from_points(center, mouse);
+    let theta = point::angle(center, mouse);
 
     let player = context.state.world.player().unwrap();
     let mut pos = context.state.world.ecs_mut().positions.get_mut_or_err(player);
-    pos.dir = dir;
+    pos.dir = theta;
 }
 
 fn run_command(context: &mut GameContext, command: Command) {
@@ -307,10 +305,6 @@ fn run_command(context: &mut GameContext, command: Command) {
                 phys.accel_x = offset.0 as f32 * 0.05;
                 phys.accel_z = offset.1 as f32 * 0.05;
                 phys.movement_frames += 1;
-            }
-            {
-                let mut pos = context.state.world.ecs_mut().positions.get_mut_or_err(player);
-                pos.dir = dir;
             }
         },
         Command::Jump => {
@@ -337,9 +331,13 @@ fn run_command(context: &mut GameContext, command: Command) {
 
             if let Some(kind) = kind {
                 let pos = context.state.world.ecs().positions.get_or_err(player).pos;
+                let dir = context.state.world.ecs().positions.get_or_err(player).dir;
                 let bullet = context.state.world.spawn(prefab::bullet(), pos);
                 let mut phys = context.state.world.ecs_mut().physics.get_mut_or_err(bullet);
-                phys.impulse(Point::new(1.0, 0.0, 0.0));
+
+                let dx = dir.cos();
+                let dz = dir.sin();
+                phys.impulse(Point::new(dx, 0.0, dz));
             }
         }
         Command::Restart => restart_game(context),
