@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use GameContext;
 use point;
@@ -80,6 +80,9 @@ pub fn get_commands(input: &HashMap<KeyCode, bool>) -> Vec<Command> {
     else if d {
         commands.push(Command::Move(Direction::E));
     }
+    else {
+        commands.push(Command::Wait);
+    }
 
     let space = input.get(&KeyCode::Space).map_or(false, |b| *b);
     if space {
@@ -99,10 +102,6 @@ pub fn get_commands(input: &HashMap<KeyCode, bool>) -> Vec<Command> {
     let q = input.get(&KeyCode::Q).map_or(false, |b| *b);
     if q {
         commands.push(Command::Restart);
-    }
-
-    if commands.is_empty() {
-        commands.push(Command::Wait);
     }
 
     commands
@@ -129,9 +128,11 @@ fn process(context: &mut GameContext) {
     context.state.world.update_physics();
 
     step_physics(&mut context.state.world);
+    step_holds(&mut context.state.world);
     step_gun(&mut context.state.world);
     step_bullet(&mut context.state.world);
     step_healths(&mut context.state.world);
+
     // TODO: move here
     context.state.world.handle_events();
     context.state.world.purge_dead();
@@ -236,6 +237,50 @@ fn step_bullet(world: &mut World) {
     }
 }
 
+fn step_holds(world: &mut World) {
+    let mut holds = Vec::new();
+    for entity in world.entities() {
+        if world.ecs().holds.has(*entity) {
+            holds.push(*entity);
+        }
+    }
+
+    for hold in holds {
+        let mut remove = HashSet::new();
+        let mut adj = HashSet::new();
+        let (pos, dir) = {
+            let pos = world.ecs().positions.get_or_err(hold);
+            (pos.pos, pos.dir)
+        };
+
+        {
+            let holding = world.ecs().holds.get_or_err(hold);
+            for entity in holding.0.keys() {
+                if !world.contains(*entity) {
+                    remove.insert(*entity);
+                } else {
+                    let is_holding = holding.0.get(entity).unwrap();
+                    if !is_holding {
+                        adj.insert(*entity);
+                    }
+                }
+            }
+        }
+
+        for entity in remove {
+            let mut holding = world.ecs_mut().holds.get_mut_or_err(hold);
+            holding.0.remove(&entity);
+        }
+
+        for entity in adj {
+            if let Some(to_set) = world.ecs_mut().positions.get_mut(hold) {
+                to_set.pos = pos;
+                to_set.dir = dir;
+            }
+        }
+    }
+}
+
 fn step_gun(world: &mut World) {
     let mut guns = Vec::new();
     for entity in world.entities() {
@@ -244,48 +289,28 @@ fn step_gun(world: &mut World) {
         }
     }
 
-    // TODO: MAKE BETTER
     for gun in guns {
-        {
-            let active = {
-                let gun_compo = world.ecs().guns.get_or_err(gun);
-                if let Some(holder) = gun_compo.chara {
-                    world.contains(holder)
-                } else {
-                    false
-                }
-            };
-
-            if !active {
-                let mut gun_compo = world.ecs_mut().guns.get_mut_or_err(gun);
-                gun_compo.chara = None;
+        let (holder_pos, holder_dir) = {
+            let hold = world.ecs().holds.get(gun).unwrap();
+            if hold.0.is_empty() {
+                continue;
             }
-        }
 
-        let mut holder = None;
-        let mut change = {
-            let gun_compo = world.ecs().guns.get_or_err(gun);
-            holder = gun_compo.chara;
-            if let Some(h) = holder {
-                world.contains(h)
-            } else {
-                false
-            }
+            assert!(hold.0.keys().len() == 1);
+            let owner = hold.0.keys().next().unwrap();
+
+            debug::add_text(format!("{:?}", owner));
+
+            let pos = world.ecs().positions.get_or_err(*owner);
+            (pos.pos, pos.dir)
         };
-
-        debug::add_text(format!("{:?} {}", holder, change));
-        if holder.is_some() && change {
-            let holder_dir = world.ecs().positions.get_or_err(holder.unwrap()).dir;
-            let holder_pos = *world.ecs().positions.get_or_err(holder.unwrap()).pos;
-
-            let mut gun_pos = world.ecs_mut().positions.get_mut_or_err(gun);
-            gun_pos.dir = holder_dir;
-            let p2: &mut Point = &mut gun_pos.pos;
-            let p: Point = Point::new(holder_pos.x, holder_pos.y, holder_pos.z);
-            p2.x = p.x;
-            p2.y = p.y;
-            p2.z = p.z;
-        }
+        let mut gun_pos = world.ecs_mut().positions.get_mut_or_err(gun);
+        gun_pos.dir = holder_dir;
+        let p2: &mut Point = &mut gun_pos.pos;
+        let p: Point = Point::new(holder_pos.x, holder_pos.y, holder_pos.z);
+        p2.x = p.x;
+        p2.y = p.y;
+        p2.z = p.z;
     }
 }
 
@@ -342,60 +367,72 @@ fn update_look(context: &mut GameContext, mouse: &(i32, i32)) {
 }
 
 fn run_command(context: &mut GameContext, command: Command) {
+    let player = context.state.world.player().unwrap();
     match command {
-        Command::Move(dir) => {
-            let player = context.state.world.player().unwrap();
+        Command::Move(dir) => move_in_dir(&mut context.state.world, player, dir),
+        Command::Jump => jump(&mut context.state.world, player),
+        Command::Shoot => shoot(&mut context.state.world, player),
+        Command::Wait => stop_moving(&mut context.state.world, player),
 
-            {
-                let mut phys = context.state.world.ecs_mut().physics.get_mut_or_err(player);
-
-                let offset = dir.to_movement_offset();
-                phys.accel_x = offset.0 as f32 * 0.05;
-                phys.accel_z = offset.1 as f32 * 0.05;
-                phys.movement_frames += 1;
-            }
-        },
-        Command::Jump => {
-            let player = context.state.world.player().unwrap();
-            let mut phys = context.state.world.ecs_mut().physics.get_mut_or_err(player);
-
-            if phys.accel_y > -0.1 {
-                phys.dy = -3.0
-            }
-        }
         Command::ReloadShaders => renderer::with_mut(|rc| rc.reload_shaders()),
-        Command::Shoot => {
-            let player = context.state.world.player().unwrap();
-            let kind = {
-                let chara = context.state.world.ecs().charas.get_or_err(player);
-                match chara.gun {
-                    Some(gun) => {
-                        let gun = context.state.world.ecs().guns.get_or_err(gun);
-                        Some(gun.bullet)
-                    },
-                    None => None,
-                }
-            };
+        Command::Restart => restart_game(context),
+        Command::Quit => (),
+    }
+}
 
-            if let Some(kind) = kind {
-                let pos = context.state.world.ecs().positions.get_or_err(player).pos;
-                let dir = context.state.world.ecs().positions.get_or_err(player).dir;
-                let bullet = context.state.world.spawn(prefab::bullet(), pos);
-                let mut phys = context.state.world.ecs_mut().physics.get_mut_or_err(bullet);
+fn move_in_dir(world: &mut World, entity: Entity, dir: Direction) {
+    let mut phys = world.ecs_mut().physics.get_mut_or_err(entity);
 
-                let dx = dir.cos();
-                let dz = dir.sin();
-                phys.impulse(Point::new(dx, 0.0, dz));
+    let offset = dir.to_movement_offset();
+    phys.accel_x = offset.0 as f32 * 0.05;
+    phys.accel_z = offset.1 as f32 * 0.05;
+    phys.movement_frames += 1;
+}
+
+fn jump(world: &mut World, entity: Entity) {
+    let mut phys = world.ecs_mut().physics.get_mut_or_err(entity);
+
+    if phys.accel_y > -0.1 {
+        phys.dy = -3.0
+    }
+}
+
+fn stop_moving(world: &mut World, entity: Entity) {
+    let mut phys = world.ecs_mut().physics.get_mut_or_err(entity);
+
+    phys.movement_frames = 0;
+    phys.accel_x = 0.0;
+    phys.accel_z = 0.0;
+}
+
+
+// to move
+// avoid defining methods
+fn shoot(world: &mut World, firing: Entity) {
+    let gun = {
+        let holds = world.ecs().holds.get_or_err(firing);
+        let mut gun = None;
+        for entity in holds.0.keys() {
+            if let Some(g) = world.ecs().guns.get(*entity) {
+                gun = Some(*g);
+                break;
             }
         }
-        Command::Restart => restart_game(context),
-        _ => {
-            let player = context.state.world.player().unwrap();
-            let mut phys = context.state.world.ecs_mut().physics.get_mut_or_err(player);
+        gun
+    };
 
-            phys.movement_frames = 0;
-            phys.accel_x = 0.0;
-            phys.accel_z = 0.0;
-        }
+    if let Some(gun) = gun {
+        let pos = {
+            let pos = world.ecs().positions.get_or_err(firing);
+            let dir = pos.dir;
+            point::relative(pos.pos, Point::new(1.5, 0.0, 0.0), pos.dir)
+        };
+        let dir = world.ecs().positions.get_or_err(firing).dir + rand::thread_rng().gen_range(-gun.spread, gun.spread);
+        let bullet = world.spawn(prefab::bullet(firing), pos);
+        let mut phys = world.ecs_mut().physics.get_mut_or_err(bullet);
+
+        let dx = dir.cos();
+        let dz = dir.sin();
+        phys.impulse(Point::new(dx, 0.0, dz));
     }
 }

@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use calx_ecs::Entity;
 use rand::{self, Rng};
 
@@ -228,10 +229,15 @@ impl Appearance {
     }
 }
 
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Team(u8);
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Bullet {
     pub damage: i32,
     pub time_left: f32,
+    pub fired_by: Entity,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
@@ -239,21 +245,32 @@ pub enum BulletKind {
     NineMm,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct Gun {
-    pub chara: Option<Entity>,
     pub bullet: BulletKind,
+    pub spread: f32,
+    pub fire_rate: f32,
+    pub clip_size: u16,
+    pub reload_time: f32,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Chara {
-    pub gun: Option<Entity>
 }
 
 impl Chara {
     pub fn new() -> Self {
         Chara {
-            gun: None
         }
+    }
+}
+
+// entity, is_holder
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Holds(pub HashMap<Entity, bool>);
+
+impl Holds {
+    pub fn new() -> Self {
+        Holds(HashMap::new())
     }
 }

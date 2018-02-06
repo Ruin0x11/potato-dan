@@ -1,3 +1,4 @@
+use calx_ecs::Entity;
 use ecs::Loadout;
 use ecs::components::*;
 
@@ -20,14 +21,15 @@ pub fn gun() -> Loadout {
     );
     Loadout::new()
         .c(app)
-        .c(Gun { bullet: BulletKind::NineMm, chara: None })
+        .c(Gun { bullet: BulletKind::NineMm, spread: 0.4, fire_rate: 1.0, clip_size: 100,
+    reload_time: 5.0 })
 }
 
-pub fn bullet() -> Loadout {
+pub fn bullet(fired_by: Entity) -> Loadout {
     Loadout::new()
         .c(Appearance::Bullet)
         .c(Physics::new(PhysicsShape::Bullet, PhysicsKind::Bullet))
-        .c(Bullet { damage: 1, time_left: 60.0 })
+        .c(Bullet { damage: 10, time_left: 60.0, fired_by: fired_by })
 }
 
 pub fn wall() -> Loadout {

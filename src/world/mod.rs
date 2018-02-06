@@ -127,7 +127,7 @@ impl World {
     }
 
     pub fn spawn(&mut self, mut loadout: Loadout, pos: Point) -> Entity {
-        loadout = loadout.c(Position::new(pos));
+        loadout = loadout.c(Position::new(pos)).c(Holds::new());
 
         let entity = loadout.make(&mut self.ecs);
 
@@ -153,17 +153,6 @@ impl World {
         entity
     }
 
-    pub fn equip(&mut self, chara: Entity, gun: Entity) {
-        {
-            let mut chara = self.ecs.charas.get_mut_or_err(chara);
-            chara.gun = Some(gun);
-        }
-        {
-            let mut gun = self.ecs.guns.get_mut_or_err(gun);
-            gun.chara = Some(chara);
-        }
-    }
-
     pub fn remove(&mut self, entity: Entity) {
         if self.ecs.physics.contains(entity) {
             let handle = self.ecs.physics.get_mut_or_err(entity).handle;
@@ -183,6 +172,17 @@ impl World {
     pub fn purge_dead(&mut self) {
         while let Some(e) = self.kill_list.pop() {
             self.remove(e);
+        }
+    }
+
+    pub fn equip(&mut self, chara: Entity, gun: Entity) {
+        {
+            let mut holds = self.ecs.holds.get_mut_or_err(chara);
+            holds.0.insert(gun, true);
+        }
+        {
+            let mut holds = self.ecs.holds.get_mut_or_err(gun);
+            holds.0.insert(chara, false);
         }
     }
 
@@ -252,11 +252,17 @@ impl World {
 
         if self.ecs().bullets.has(a) {
             if self.ecs().charas.has(b) {
+                // TODO: blacklist bullet from other team
+                let fired_by = self.ecs().bullets.get_or_err(a).fired_by;
+                if fired_by == b {
+                    return;
+                }
+
                 let damage = self.ecs().bullets.get_or_err(a).damage;
                 self.push_event(Event::Hurt(damage), b);
-                // TODO: spawn bullet in front, blacklist bullet from other team
-                //self.push_event(Event::Destroy, a);
             }
+            self.push_event(Event::Collide(move_vec.clone()), b);
+            self.push_event(Event::Destroy, a);
         }
     }
 
@@ -271,12 +277,15 @@ impl World {
                 Event::Hurt(damage) => {
                     if let Some(health) = self.ecs_mut().healths.get_mut(entity) {
                         health.hurt(damage);
-                        println!("Hit {} {}", health.hit_points, damage)
                     }
-                }
+                },
                 Event::Destroy => {
-                    println!("destroy {:?}", entity);
                     self.kill_list.push(entity);
+                },
+                Event::Collide(vec) => {
+                    if let Some(phys) = self.ecs_mut().physics.get_mut(entity) {
+                        phys.impulse(Point::new(-vec.x, 0.0, -vec.z));
+                    }
                 }
             }
         }
@@ -286,4 +295,5 @@ impl World {
 pub enum Event {
     Hurt(i32),
     Destroy,
+    Collide(Matrix3x1<f32>),
 }
