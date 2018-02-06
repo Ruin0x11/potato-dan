@@ -1,21 +1,23 @@
 use std::collections::{HashMap, HashSet};
 
 use GameContext;
-use point;
-use debug;
-use engine::keys::KeyCode;
-use world::{World, Event};
-use ecs::prefab;
-use ecs::Loadout;
-use ecs::traits::*;
-use ecs::components::*;
-use point::*;
+use ai::{self, Ai, AiKind};
 use calx_ecs::Entity;
-use util;
+use debug;
+use ecs::Loadout;
+use ecs::components::*;
+use ecs::prefab;
+use ecs::traits::*;
+use engine::keys::KeyCode;
+use point::*;
+use point;
 use rand::{self, Rng};
 use renderer;
+use util;
+use world::{World, Event};
 
 pub struct GameState {
+    pub frame: u64,
     pub world: World,
 }
 
@@ -27,12 +29,11 @@ impl GameState {
             world.spawn(prefab::wall(), Point::new(3.0 + (i as f32 * 1.0), 0.0, 4.0));
             let x = rand::thread_rng().gen_range(0.0, 50.0);
             let z = rand::thread_rng().gen_range(0.0, 50.0);
-            world.spawn(prefab::mob("Dood"), Point::new(x, 0.0, z));
+            world.spawn(prefab::mob("Dood").c(Ai::new(AiKind::Guard)), Point::new(x, 0.0, z));
         }
-        world.spawn(prefab::wall(), Point::new(3.0, 0.0, -4.0));
-        world.spawn(prefab::mob("Dood"), Point::new(0.0, 0.0, 5.0));
 
         GameState {
+            frame: 0,
             world: world,
         }
     }
@@ -127,6 +128,8 @@ fn process(context: &mut GameContext) {
     update_camera(context);
     context.state.world.update_physics();
 
+    let recheck = context.state.frame % 60 == 0;
+    step_ai(&mut context.state.world, recheck);
     step_physics(&mut context.state.world);
     step_holds(&mut context.state.world);
     step_gun(&mut context.state.world);
@@ -136,6 +139,8 @@ fn process(context: &mut GameContext) {
     // TODO: move here
     context.state.world.handle_events();
     context.state.world.purge_dead();
+
+    context.state.frame += 1;
 }
 
 fn step_physics(world: &mut World) {
@@ -299,8 +304,6 @@ fn step_gun(world: &mut World) {
             assert!(hold.0.keys().len() == 1);
             let owner = hold.0.keys().next().unwrap();
 
-            debug::add_text(format!("{:?}", owner));
-
             let pos = world.ecs().positions.get_or_err(*owner);
             (pos.pos, pos.dir)
         };
@@ -326,6 +329,19 @@ fn step_healths(world: &mut World) {
         if world.ecs().healths.get_or_err(health).is_dead() {
             world.push_event(Event::Destroy, health);
         }
+    }
+}
+
+fn step_ai(world: &mut World, recheck: bool) {
+    let mut ais = Vec::new();
+    for entity in world.entities() {
+        if world.ecs().ais.has(*entity) {
+            ais.push(*entity);
+        }
+    }
+
+    for entity in ais {
+        let action = ai::run(entity, world, recheck);
     }
 }
 
@@ -405,9 +421,6 @@ fn stop_moving(world: &mut World, entity: Entity) {
     phys.accel_z = 0.0;
 }
 
-
-// to move
-// avoid defining methods
 fn shoot(world: &mut World, firing: Entity) {
     let gun = {
         let holds = world.ecs().holds.get_or_err(firing);

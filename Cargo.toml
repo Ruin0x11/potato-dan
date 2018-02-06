@@ -17,6 +17,8 @@ ncollide = { version = "0.13", git = "https://github.com/Ruin0x11/ncollide" }
 hlua = "0.4"
 rand = "0.4"
 lazy_static = "1"
+macro-attr = "0.2.0"
+enum_derive = "0.1.7"
 
 bincode = "0.9"
 rust-crypto = "0.2"
@@ -25,4 +27,5 @@ serde = "1"
 serde_derive = "1"
 
 calx-ecs = "0.6.0"
-#calx-alg = { git = "https://github.com/rsaarelm/calx" }
+
+goap = { git = "https://github.com/Ruin0x11/goap-rs" }

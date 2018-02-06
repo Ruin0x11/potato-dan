@@ -2,6 +2,10 @@
 
 #[macro_use]
 extern crate calx_ecs;
+#[macro_use]
+extern crate macro_attr;
+#[macro_use]
+extern crate enum_derive;
 //#[macro_use]
 extern crate hlua;
 //#[macro_use]
@@ -15,6 +19,7 @@ extern crate bincode;
 extern crate cgmath;
 extern crate crypto;
 extern crate glob;
+extern crate goap;
 extern crate image;
 extern crate nalgebra;
 extern crate ncollide;
@@ -27,6 +32,7 @@ extern crate toml;
 #[macro_use]
 mod macros;
 
+mod ai;
 mod debug;
 mod ecs;
 mod engine;

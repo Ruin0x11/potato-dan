@@ -229,10 +229,6 @@ impl Appearance {
     }
 }
 
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct Team(u8);
-
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Bullet {
     pub damage: i32,
@@ -255,12 +251,17 @@ pub struct Gun {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Team(u8);
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Chara {
+    team: Team
 }
 
 impl Chara {
     pub fn new() -> Self {
         Chara {
+            team: Team(0),
         }
     }
 }
