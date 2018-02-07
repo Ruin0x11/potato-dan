@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use GameContext;
-use ai::{self, Ai, AiKind};
+use ai::{self, Ai, AiKind, Action};
 use calx_ecs::Entity;
 use debug;
 use ecs::Loadout;
@@ -26,9 +26,9 @@ impl GameState {
         let mut world = World::new();
 
         for i in 0..30 {
-            world.spawn(prefab::wall(), Point::new(3.0 + (i as f32 * 1.0), 0.0, 4.0));
-            let x = rand::thread_rng().gen_range(0.0, 50.0);
-            let z = rand::thread_rng().gen_range(0.0, 50.0);
+            world.spawn(prefab::wall(), Point::new(3.0 + (i as f32 * 1.0), 0.0, 15.0));
+            let x = rand::thread_rng().gen_range(30.0, 50.0);
+            let z = rand::thread_rng().gen_range(30.0, 50.0);
             world.spawn(prefab::mob("Dood").c(Ai::new(AiKind::Guard)), Point::new(x, 0.0, z));
         }
 
@@ -154,12 +154,12 @@ fn step_physics(world: &mut World) {
 
     for entity in objects {
         let kind = world.ecs_mut().physics.get_mut_or_err(entity).kind;
+        let mut dx;
+        let mut dy;
+        let mut dz;
         match kind {
             PhysicsKind::Physical => {
                 let mut set_to_ground = false;
-                let mut dx;
-                let mut dy;
-                let mut dz;
                 {
                     let pos = world.ecs().positions.get_or_err(entity).pos;
                     let mut phys = world.ecs_mut().physics.get_mut_or_err(entity);
@@ -199,9 +199,6 @@ fn step_physics(world: &mut World) {
                 pos.pos.z += dz;
             },
             PhysicsKind::Bullet => {
-                let mut dx;
-                let mut dy;
-                let mut dz;
                 {
                     let pos = world.ecs().positions.get_or_err(entity).pos;
                     let mut phys = world.ecs_mut().physics.get_mut_or_err(entity);
@@ -216,6 +213,11 @@ fn step_physics(world: &mut World) {
                 pos.pos.z += dz;
             }
         }
+
+        let (w, h) = world.size();
+        let mut pos = world.ecs_mut().positions.get_mut_or_err(entity);
+        pos.pos.x = util::clamp(pos.pos.x, 0.0, w as f32);
+        pos.pos.z = util::clamp(pos.pos.z, 0.0, h as f32);
     }
 }
 
@@ -343,6 +345,13 @@ fn step_ai(world: &mut World, recheck: bool) {
 
     for entity in ais {
         let action = ai::run(entity, world, recheck);
+        if recheck {
+            println!("{:?}", action);
+        }
+        match action {
+            Some(Action::Go(dir)) => move_in_dir(world, entity, dir),
+            _ => stop_moving(world, entity),
+        }
     }
 }
 
@@ -442,11 +451,12 @@ fn shoot(world: &mut World, firing: Entity) {
             point::relative(pos.pos, Point::new(1.5, 0.0, 0.0), pos.dir)
         };
         let dir = world.ecs().positions.get_or_err(firing).dir + rand::thread_rng().gen_range(-gun.spread, gun.spread);
-        let bullet = world.spawn(prefab::bullet(firing), pos);
-        let mut phys = world.ecs_mut().physics.get_mut_or_err(bullet);
+        if let Some(bullet) = world.spawn(prefab::bullet(firing), pos) {
+            let mut phys = world.ecs_mut().physics.get_mut_or_err(bullet);
 
-        let dx = dir.cos();
-        let dz = dir.sin();
-        phys.impulse(Point::new(dx, 0.0, dz));
+            let dx = dir.cos();
+            let dz = dir.sin();
+            phys.impulse(Point::new(dx, 0.0, dz));
+        }
     }
 }

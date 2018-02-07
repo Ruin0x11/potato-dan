@@ -2,11 +2,11 @@ use calx_ecs::Entity;
 use goap::*;
 
 use ecs::traits::*;
-use point::Direction;
+use point::*;
 use ai::Action;
-use point::Point;
+use point::*;
 use rand::{self, Rng};
-use world::World;
+use world::{self, World};
 
 use ai;
 use super::{Ai, AiProp, AiGoal, Target};
@@ -53,7 +53,8 @@ macro_rules! generate_ai_actions {
 }
 
 generate_ai_actions! {
-    Wait, ai_wait;
+    Wait, ai_go;
+    Go, ai_go;
 }
 
 
@@ -87,12 +88,12 @@ fn ai_wait(_entity: Entity, _world: &World) -> Action {
 //     Action::Move(Direction::choose8())
 // }
 // 
-// fn ai_move_closer(entity: Entity, world: &World) -> Action {
-//     match direction_towards_target(entity, world) {
-//         Some(dir) => Action::Move(dir),
-//         None => Action::Wait,
-//     }
-// }
+fn ai_go(entity: Entity, world: &World) -> Action {
+     match direction_towards_target(entity, world) {
+         Some(dir) => Action::Go(dir),
+         None => Action::Wait,
+     }
+}
 // 
 // fn ai_return_to_position(entity: Entity, world: &World) -> Action {
 //     let ai = &world.ecs().ais.get_or_err(entity).data;
@@ -139,38 +140,31 @@ fn ai_wait(_entity: Entity, _world: &World) -> Action {
 //     }
 // }
 // 
-// fn direction_towards(entity: Entity, target_pos: Point, world: &World) -> Option<Direction> {
-//     let my_pos = world.position(entity).unwrap();
-// 
-//     // assert!(entity.can_see_other(target, world), "Entity can't see target!");
-// 
-//     if my_pos.is_next_to(target_pos) {
-//         return Direction::from_neighbors(my_pos, target_pos);
-//     }
-// 
-//     let mut path = Path::find(my_pos, target_pos, world, Walkability::MonstersBlocking);
-// 
-//     if path.len() == 0 {
-//         path = Path::find(my_pos, target_pos, world, Walkability::MonstersWalkable);
-// 
-//         if path.len() == 0 {
-//             return None;
-//         }
-//     }
-// 
-//     let next_pos = path.next().unwrap();
-// 
-//     Some(Direction::from_neighbors(my_pos, next_pos).unwrap())
-// }
-// 
-// fn direction_towards_target(entity: Entity, world: &World) -> Option<Direction> {
-//     let ais = &world.ecs().ais;
-//     let ai = &ais.get_or_err(entity).data;
-// 
-//     let target = ai.targets.borrow().peek().unwrap().entity.unwrap();
-//     let target_pos = world.position(target).unwrap();
-//     direction_towards(entity, target_pos, world)
-// }
+fn direction_towards(entity: Entity, target_pos: Point, world: &World) -> Option<Direction> {
+    let my_pos = world.position(entity).unwrap();
+
+    let my_pos_i = Point2d::new((my_pos.pos.x * 0.5) as i32, (my_pos.pos.z * 0.5) as i32);
+    let target_pos_i = Point2d::new((target_pos.x * 0.5) as i32, (target_pos.z * 0.5) as i32);
+
+    let mut path = world::astar::find_path(my_pos_i, target_pos_i, &world.grid);
+
+    if path.len() == 0 {
+        return None;
+    }
+
+    let next_pos = path.pop().unwrap();
+
+    Some(Direction::from_neighbors(my_pos_i, next_pos).unwrap())
+}
+
+fn direction_towards_target(entity: Entity, world: &World) -> Option<Direction> {
+    let ais = &world.ecs().ais;
+    let ai = &ais.get_or_err(entity).data;
+
+    let target = world.player().unwrap();
+    let target_pos = world.position(target).unwrap().pos;
+    direction_towards(entity, target_pos, world)
+}
 
 
 fn warn_of_unreachable_states(entity: Entity, world: &World, ai: &Ai) {

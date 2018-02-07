@@ -13,7 +13,7 @@ use ecs::traits::*;
 use point::*;
 use super::{World, CollideWorld, CollisionDataExtra};
 
-const CALCULATION_LIMIT: u32 = 50;
+const CALCULATION_LIMIT: u32 = 150;
 
 #[derive(Clone, Copy, Debug)]
 pub struct Node {
@@ -84,8 +84,8 @@ impl Grid {
         for x in 0..self.size.0 {
             for z in 0..self.size.1 {
                 let pos = Point2d::new(x as i32, z as i32);
-                let mins = Point::new(x as f32, -10.0, z as f32);
-                let maxs = Point::new(x as f32 + 1.0, 10.0, z as f32 + 1.0);
+                let mins = Point::new((x*2) as f32, -10.0, (z*2) as f32);
+                let maxs = Point::new((x*2) as f32 + 2.0, 10.0, (z*2) as f32 + 2.0);
                 let aabb = AABB::new(mins, maxs);
                 let mut i = world.interferences_with_aabb(&aabb, &self.groups);
                 let blocked = i.next().is_some();
@@ -113,7 +113,7 @@ impl Grid {
 
         nearby_points.iter()
             .map(|&d| center + d.coords)
-            .filter(|point| self.blocked(point))
+            .filter(|point| !self.blocked(point))
             .collect::<Vec<_>>()
     }
 
@@ -157,7 +157,7 @@ fn create_path(from: Point2d, to: Point2d, came_from: HashMap<Point2d, Option<Po
     path_buffer
 }
 
-pub fn find(from: Point2d, to: Point2d, grid: &Grid) -> Vec<Point2d> {
+pub fn find_path(from: Point2d, to: Point2d, grid: &Grid) -> Vec<Point2d> {
     if from == to {
         return vec![];
     }

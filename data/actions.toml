@@ -1,13 +1,13 @@
-# [[action]]
-# name="Wander"
-# cost=100
-# [action.pre]
-# Moving=false
-# [action.post]
-# Moving=true
-# HasTarget=true
-# TargetVisible=true
-# FoundItem=true
+[[action]]
+name="Go"
+cost=100
+[action.pre]
+Moving=false
+[action.post]
+Moving=true
+#HasTarget=true
+#TargetVisible=true
+#FoundItem=true
 
 [[action]]
 name="Wait"

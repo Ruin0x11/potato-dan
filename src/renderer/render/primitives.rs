@@ -145,8 +145,8 @@ impl RenderUpdate for Primitives {
         for (pos, blocked) in world.grid.nodes.iter() {
             if *blocked {
                 instances.push(Instance {
-                    offset: [(pos.x) as f32 - camera.x, (pos.y) as f32 - camera.z, 0.0],
-                    scale: [1.0, 1.0, 1.0],
+                    offset: [(pos.x*2) as f32 - camera.x, (pos.y*2) as f32 - camera.z, 0.0],
+                    scale: [2.0, 2.0, 1.0],
                 });
             }
         }

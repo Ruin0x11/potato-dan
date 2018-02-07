@@ -18,7 +18,7 @@ use ncollide::shape::{Ball, Cylinder, Cuboid, Plane, ShapeHandle3};
 use ncollide::query::{self, Proximity};
 use ncollide::events::{ContactEvents};
 
-mod astar;
+pub mod astar;
 
 pub type CollideWorld = CollisionWorld<Point, Isometry3<f32>, CollisionDataExtra>;
 
@@ -37,6 +37,9 @@ pub struct World {
     shapes: HashMap<PhysicsShape, CollisionData>,
     events: Vec<(Event, Entity)>,
     kill_list: Vec<Entity>,
+
+    // in 32 pixel increments
+    size: (u32, u32),
 }
 
 #[derive(Clone)]
@@ -81,8 +84,9 @@ fn shape_handles() -> HashMap<PhysicsShape, CollisionData> {
 
 impl World {
     pub fn new() -> Self {
+        let size = (64, 64);
         let mut collision_world = CollisionWorld::new(0.02);
-        let grid = Grid::new(&mut collision_world, (32, 32));
+        let grid = Grid::new(&mut collision_world, size);
         let mut world = World {
             ecs: Ecs::new(),
             player: None,
@@ -92,12 +96,13 @@ impl World {
             shapes: shape_handles(),
             events: Vec::new(),
             kill_list: Vec::new(),
+            size: size,
         };
 
-        let player = world.spawn(prefab::mob("Dood"), Point::new(0.0, 0.0, 0.0));
-        let camera = world.spawn(Loadout::new().c(Camera::new(player)), point::zero());
+        let player = world.spawn(prefab::mob("Dood"), Point::new(0.0, 0.0, 0.0)).unwrap();
+        let camera = world.spawn(Loadout::new().c(Camera::new(player)), point::zero()).unwrap();
 
-        let gun = world.spawn(prefab::gun(), point::zero());
+        let gun = world.spawn(prefab::gun(), point::zero()).unwrap();
         world.equip(player, gun);
 
         world.player = Some(player);
@@ -111,8 +116,16 @@ impl World {
         &self.ecs
     }
 
+    pub fn size(&self) -> (u32, u32) {
+        self.size
+    }
+
     pub fn entities(&self) -> slice::Iter<Entity> {
         self.ecs.iter()
+    }
+
+    pub fn position(&self, entity: Entity) -> Option<&Position> {
+        self.ecs.positions.get(entity)
     }
 
     pub fn player(&self) -> Option<Entity> {
@@ -133,13 +146,21 @@ impl World {
         })
     }
 
+    pub fn in_bounds(&self, pos: &Point) -> bool {
+        pos.x >= 0.0 && pos.z >= 0.0 && pos.x < self.size.0 as f32 && pos.z < self.size.1 as f32
+    }
+
     // mut
 
     pub fn ecs_mut(&mut self) -> &mut Ecs {
         &mut self.ecs
     }
 
-    pub fn spawn(&mut self, mut loadout: Loadout, pos: Point) -> Entity {
+    pub fn spawn(&mut self, mut loadout: Loadout, pos: Point) -> Option<Entity> {
+        if !self.in_bounds(&pos) {
+            return None;
+        }
+
         loadout = loadout.c(Position::new(pos)).c(Holds::new());
 
         let entity = loadout.make(&mut self.ecs);
@@ -161,7 +182,7 @@ impl World {
             phys.handle = Some(handle);
         }
 
-        entity
+        Some(entity)
     }
 
     pub fn remove(&mut self, entity: Entity) {

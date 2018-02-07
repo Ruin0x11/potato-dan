@@ -86,7 +86,7 @@ fn get_default_goal(entity: Entity, world: &World) -> Target {
     //     AiKind::Scavenge if ai.cond(AiProp::FoundItem, true) => goal_scavenge(entity, world),
     //     AiKind::Scavenge => Target::new(AiGoal::FindItem),
     // }
-    Target::new(AiGoal::DoNothing)
+    Target::new(AiGoal::Wander)
 }
 
 // fn attack_target(entity: Entity) -> Target {

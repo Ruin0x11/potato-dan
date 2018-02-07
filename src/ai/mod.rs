@@ -14,6 +14,7 @@ use std::collections::HashMap;
 
 use calx_ecs::Entity;
 use goap::*;
+use point::Direction;
 
 use ai::sensors::Sensor;
 use ecs::traits::ComponentQuery;
@@ -22,8 +23,9 @@ use world::World;
 use util;
 use toml;
 
+#[derive(Clone, Debug)]
 pub enum Action {
-    Go,
+    Go(Direction),
     Wait
 }
 
@@ -209,7 +211,6 @@ pub fn update_next_action(entity: Entity, world: &World) {
     *ai.data.next_action.borrow_mut() = next_action;
 }
 
-// FIXME: increase speed
 fn check_target(entity: Entity, world: &World) {
     // The entity reference could go stale, so make sure it isn't.
     // TODO: Should this have to happen every time an entity reference is held

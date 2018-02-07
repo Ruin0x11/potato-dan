@@ -112,8 +112,8 @@ impl Direction {
             *self == Direction::W
     }
 
-    fn from_movement_offset<P: Into<(i32, i32)>>(offset: P) -> Option<Direction> {
-        let (x, y) = offset.into();
+    fn from_movement_offset(offset: point::Point2d) -> Option<Direction> {
+        let (x, y) = (offset.x, offset.y);
         match (x, y) {
             (0, -1) => Some(Direction::N),
             (-1, -1) => Some(Direction::NW),
@@ -133,6 +133,10 @@ impl Direction {
 
     pub fn iter8() -> Iter<'static, Direction> {
         DIRECTIONS.into_iter()
+    }
+
+    pub fn from_neighbors(from: point::Point2d, to: point::Point2d) -> Option<Direction> {
+        Direction::from_movement_offset(to - from.coords)
     }
 }
 
