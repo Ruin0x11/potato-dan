@@ -15,18 +15,25 @@ struct Instance {
 implement_vertex!(Instance, offset, scale);
 
 pub struct Primitives {
-    prims: Vec<DrawPrimitive>,
+    prims: Vec<Instance>,
+    lines: Vec<Vertex3f>,
 
     indices: glium::IndexBuffer<u16>,
     vertices: glium::VertexBuffer<Vertex3>,
-    instances: Vec<glium::VertexBuffer<Instance>>,
+    instances: glium::VertexBuffer<Instance>,
     program: glium::Program,
+    line_program: glium::Program,
+
+    line_indices: glium::index::NoIndices,
+    line_vertices: glium::VertexBuffer<Vertex3f>,
 }
 
-struct DrawPrimitive {
-    pos: (f32, f32, f32),
-    scale: (f32, f32, f32),
+#[derive(Clone, Copy)]
+struct Vertex3f {
+    position: [f32; 3]
 }
+
+implement_vertex!(Vertex3f, position);
 
 use rand::{self, Rng};
 impl Primitives {
@@ -34,13 +41,19 @@ impl Primitives {
         let (vertices, indices) = render::make_cube_buffers(display);
 
         let program = render::load_program(display, "cube.vert", "cube.frag").unwrap();
+        let line_program = render::load_program(display, "line.vert", "cube.frag").unwrap();
 
         let mut primitives = Primitives {
             prims: Vec::new(),
+            lines: Vec::new(),
             indices: indices,
             vertices: vertices,
-            instances: Vec::new(),
+            instances: glium::VertexBuffer::dynamic(display, &[]).unwrap(),
             program: program,
+            line_program: line_program,
+
+            line_indices: glium::index::NoIndices(glium::index::PrimitiveType::LinesList),
+            line_vertices: glium::VertexBuffer::dynamic(display, &[]).unwrap(),
         };
 
         primitives.redraw(display, 0);
@@ -56,19 +69,8 @@ impl Primitives {
 
     fn make_instances<F>(&mut self, display: &F)
         where F: glium::backend::Facade {
-
-        let mut instances = Vec::new();
-
-        let mut v = Vec::new();
-        for p in self.prims.iter() {
-            v.push(Instance {
-                offset: [p.pos.0, p.pos.2, p.pos.1],
-                scale: [p.scale.0, p.scale.2, p.scale.1],
-            });
-        }
-        instances.push(glium::VertexBuffer::dynamic(display, &v).unwrap());
-
-        self.instances = instances;
+        self.line_vertices = glium::VertexBuffer::dynamic(display, &self.lines).unwrap();
+        self.instances = glium::VertexBuffer::dynamic(display, &self.prims).unwrap();
     }
 }
 
@@ -88,13 +90,19 @@ impl<'a> Renderable for Primitives {
             .. Default::default()
         };
 
-        for pass in self.instances.iter() {
-            target.draw((&self.vertices, pass.per_instance().unwrap()),
-                        &self.indices,
-                        &self.program,
-                        &uniforms,
-                        &params).unwrap();
-        }
+        // cubes
+        target.draw((&self.vertices, self.instances.per_instance().unwrap()),
+                    &self.indices,
+                    &self.program,
+                    &uniforms,
+                    &params).unwrap();
+
+        // lines
+        target.draw(&self.line_vertices,
+                    &self.line_indices,
+                    &self.line_program,
+                    &uniforms,
+                    &params).unwrap();
     }
 }
 
@@ -110,7 +118,8 @@ impl RenderUpdate for Primitives {
     }
 
     fn update(&mut self, world: &World, viewport: &Viewport) {
-        let mut prims = Vec::new();
+        let mut instances = Vec::new();
+        let mut verts = Vec::new();
         let camera = world.camera_pos().unwrap_or(point::zero());
         let min = viewport.min_point((camera.x, camera.z), 32);
         for entity in world.entities() {
@@ -118,19 +127,32 @@ impl RenderUpdate for Primitives {
                 let pos = world.ecs().positions.get_or_err(*entity);
 
                 let scale = match world.ecs().physics.get_or_err(*entity).shape {
-                    PhysicsShape::Chara => (1.0, 1.0, 1.0),
-                    PhysicsShape::Wall => (1.0, 20.0, 1.0),
-                    PhysicsShape::Bullet => (0.3, 0.3, 0.3),
+                    PhysicsShape::Chara => [1.0, 1.0, 1.0],
+                    PhysicsShape::Wall => [1.0, 1.0, 20.0],
+                    PhysicsShape::Bullet => [0.3, 0.3, 0.3],
                 };
 
-                prims.push(DrawPrimitive {
-                    pos: (pos.pos.x - camera.x + 0.5, pos.pos.y, pos.pos.z - camera.z + 0.5),
+                instances.push(Instance {
+                    offset: [pos.pos.x - camera.x + 0.5, pos.pos.z - camera.z + 0.5, pos.pos.y],
                     scale: scale,
+                });
+
+                verts.push(Vertex3f { position: [pos.pos.x - camera.x, pos.pos.z - camera.z, pos.pos.y] });
+                verts.push(Vertex3f { position: [pos.pos.x - camera.x + 1.0, pos.pos.z - camera.z + 1.0, pos.pos.y] });
+            }
+        }
+
+        for (pos, blocked) in world.grid.nodes.iter() {
+            if *blocked {
+                instances.push(Instance {
+                    offset: [(pos.x) as f32 - camera.x, (pos.y) as f32 - camera.z, 0.0],
+                    scale: [1.0, 1.0, 1.0],
                 });
             }
         }
 
-        self.prims = prims;
+        self.prims = instances;
+        self.lines = verts;
     }
 
     fn redraw<F: Facade>(&mut self, display: &F, _msecs: u64) {

@@ -125,10 +125,11 @@ pub fn game_step(context: &mut GameContext, input: &HashMap<KeyCode, bool>, mous
 }
 
 fn process(context: &mut GameContext) {
-    update_camera(context);
-    context.state.world.update_physics();
-
     let recheck = context.state.frame % 60 == 0;
+
+    update_camera(context);
+    context.state.world.update_physics(recheck);
+
     step_ai(&mut context.state.world, recheck);
     step_physics(&mut context.state.world);
     step_holds(&mut context.state.world);

@@ -9,6 +9,7 @@ use ecs::traits::*;
 use ecs::components::*;
 use point;
 use point::*;
+use world::astar::Grid;
 
 use ncollide::world::{CollisionGroups, CollisionObject3, CollisionWorld, GeometricQueryType};
 use nalgebra::{self, Isometry3, Point3, Translation3, Vector3, Matrix3x1};
@@ -17,12 +18,22 @@ use ncollide::shape::{Ball, Cylinder, Cuboid, Plane, ShapeHandle3};
 use ncollide::query::{self, Proximity};
 use ncollide::events::{ContactEvents};
 
+mod astar;
+
+pub type CollideWorld = CollisionWorld<Point, Isometry3<f32>, CollisionDataExtra>;
+
+#[derive(Clone, Copy, Debug)]
+pub enum CollisionDataExtra {
+    Entity(Entity),
+    Node(Point2d)
+}
 
 pub struct World {
     ecs: Ecs,
     player: Option<Entity>,
     pub camera: Option<Entity>,
-    collision_world: CollisionWorld<Point, Isometry3<f32>, Entity>,
+    pub collision_world: CollideWorld,
+    pub grid: Grid,
     shapes: HashMap<PhysicsShape, CollisionData>,
     events: Vec<(Event, Entity)>,
     kill_list: Vec<Entity>,
@@ -48,7 +59,7 @@ fn shape_handles() -> HashMap<PhysicsShape, CollisionData> {
 
     let mut groups = CollisionGroups::new();
     groups.set_membership(&[2]);
-    groups.set_whitelist(&[1, 3]);
+    groups.set_whitelist(&[1, 3, 4]);
     groups.set_blacklist(&[2]);
     map.insert(PhysicsShape::Wall, CollisionData {
         shape: ShapeHandle3::new(Cuboid::new(Vector3::new(0.5, 10.0, 0.5))),
@@ -71,11 +82,13 @@ fn shape_handles() -> HashMap<PhysicsShape, CollisionData> {
 impl World {
     pub fn new() -> Self {
         let mut collision_world = CollisionWorld::new(0.02);
+        let grid = Grid::new(&mut collision_world, (32, 32));
         let mut world = World {
             ecs: Ecs::new(),
             player: None,
             camera: None,
             collision_world: collision_world,
+            grid: grid,
             shapes: shape_handles(),
             events: Vec::new(),
             kill_list: Vec::new(),
@@ -137,14 +150,12 @@ impl World {
                 self.shapes.get(&phys.shape).cloned().unwrap()
             };
             let pos = self.ecs.positions.get_or_err(entity).clone();
-            let mut ball_groups = CollisionGroups::new();
-            ball_groups.set_membership(&[1]);
             let obj_pos = Isometry3::new(Vector3::new(pos.pos.x, pos.pos.y, pos.pos.z), nalgebra::zero());
             let handle = self.collision_world.add(obj_pos,
                                                   collision_data.shape,
                                                   collision_data.groups,
                                                   GeometricQueryType::Contacts(0.0, 0.0),
-                                                  entity);
+                                                  CollisionDataExtra::Entity(entity));
 
             let mut phys = self.ecs.physics.get_mut_or_err(entity);
             phys.handle = Some(handle);
@@ -186,10 +197,10 @@ impl World {
         }
     }
 
-    pub fn update_physics(&mut self) {
+    pub fn update_physics(&mut self, remake_grid: bool) {
         self.update_world_to_physics();
         self.update_collision_world();
-        self.update_physics_to_world();
+        self.update_physics_to_world(remake_grid);
     }
 
     fn update_world_to_physics(&mut self) {
@@ -224,7 +235,7 @@ impl World {
         self.collision_world.update();
     }
 
-    fn update_physics_to_world(&mut self) {
+    fn update_physics_to_world(&mut self, remake_grid: bool) {
         let mut vec = Vec::new();
         for (e1, e2, ca) in self.collision_world.contact_pairs() {
             let mut contacts = Vec::new();
@@ -240,9 +251,26 @@ impl World {
             self.collide_two(a, b, &m1);
             self.collide_two(b, a, &m2);
         }
+
+        // recalculating astar grid is expensive, only try once in a while.
+        if remake_grid {
+            self.discretize_grid();
+        }
     }
 
-    fn collide_two(&mut self, a: Entity, b: Entity, move_vec: &Matrix3x1<f32>) {
+    fn discretize_grid(&mut self) {
+        self.grid.discretize(&self.collision_world);
+    }
+
+    fn collide_two(&mut self, a: CollisionDataExtra, b: CollisionDataExtra, move_vec: &Matrix3x1<f32>) {
+        if let CollisionDataExtra::Entity(a) = a {
+            if let CollisionDataExtra::Entity(b) = b {
+                self.collide_two_entities(a, b, move_vec);
+            }
+        }
+    }
+
+    fn collide_two_entities(&mut self, a: Entity, b: Entity, move_vec: &Matrix3x1<f32>) {
         if !self.ecs.bullets.has(a) && !self.ecs.bullets.has(b) {
             if let Some(pos) = self.ecs.positions.get_mut(a) {
                 pos.pos.x += move_vec.x;
