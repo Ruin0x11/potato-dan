@@ -18,7 +18,7 @@ use point::Direction;
 
 use ai::sensors::Sensor;
 use ecs::traits::ComponentQuery;
-use point::Point;
+use point::*;
 use world::World;
 use util;
 use toml;
@@ -65,6 +65,8 @@ pub struct AiData {
     next_action: RefCell<Option<AiAction>>,
     target_was_switched: Cell<bool>,
     triggers: RefCell<Vec<AiTrigger>>,
+    regen_path: Cell<bool>,
+    cached_path: RefCell<Vec<Point2d>>,
 
     pub last_goal: RefCell<AiGoal>,
 }
@@ -85,6 +87,9 @@ impl AiData {
             next_action: RefCell::new(None),
             target_was_switched: Cell::new(false),
             triggers: RefCell::new(Vec::new()),
+            regen_path: Cell::new(false),
+            cached_path: RefCell::new(Vec::new()),
+
             last_goal: RefCell::new(AiGoal::DoNothing),
         }
     }
@@ -190,6 +195,8 @@ fn update_memory(entity: Entity, world: &World) {
             new_memory.facts.insert(fact.clone(), result);
         });
     }
+
+    ai.data.regen_path.set(true);
 
     let stale = {
         let memory = ai.data.memory.borrow();

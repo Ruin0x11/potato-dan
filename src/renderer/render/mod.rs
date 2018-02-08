@@ -16,6 +16,7 @@ use self::spritemap::SpriteMap;
 use self::primitives::Primitives;
 pub use self::viewport::Viewport;
 
+use engine::MouseState;
 use renderer::RenderUpdate;
 use renderer::ui::*;
 
@@ -24,6 +25,8 @@ use glium::glutin;
 use glium::Surface;
 use glium::backend::Facade;
 use glium::index::PrimitiveType;
+use imgui;
+use imgui_glium_renderer;
 
 #[derive(Copy, Clone)]
 pub struct Vertex {
@@ -55,15 +58,15 @@ pub const CUBE_INDICES: [u16; 36] = [0,  1,  2,  0,  2,  3,   //front
                                      20, 21, 22, 20, 22, 23];
 
 pub const CUBE: [Vertex3; 24] = [
-    Vertex3 { position: [-1, -1, 1] },
-    Vertex3 { position: [ 1, -1, 1] },
-    Vertex3 { position: [ 1,  1, 1] },
-    Vertex3 { position: [-1,  1, 1] },
+    Vertex3 { position: [-1, -1,  1] },
+    Vertex3 { position: [ 1, -1,  1] },
+    Vertex3 { position: [ 1,  1,  1] },
+    Vertex3 { position: [-1,  1,  1] },
 
-    Vertex3 { position: [1,  1,   1] },
-    Vertex3 { position: [1,  1,  -1] },
-    Vertex3 { position: [1, -1,  -1] },
-    Vertex3 { position: [1, -1,   1] },
+    Vertex3 { position: [1,   1,  1] },
+    Vertex3 { position: [1,   1, -1] },
+    Vertex3 { position: [1,  -1, -1] },
+    Vertex3 { position: [1,  -1,  1] },
 
     Vertex3 { position: [-1, -1, -1] },
     Vertex3 { position: [ 1, -1, -1] },
@@ -75,10 +78,10 @@ pub const CUBE: [Vertex3; 24] = [
     Vertex3 { position: [-1,  1,  1] },
     Vertex3 { position: [-1,  1, -1] },
 
-    Vertex3 { position: [ 1, 1,  1] },
-    Vertex3 { position: [-1, 1,  1] },
-    Vertex3 { position: [-1, 1, -1] },
-    Vertex3 { position: [ 1, 1, -1] },
+    Vertex3 { position: [ 1,  1,  1] },
+    Vertex3 { position: [-1,  1,  1] },
+    Vertex3 { position: [-1,  1, -1] },
+    Vertex3 { position: [ 1,  1, -1] },
 
     Vertex3 { position: [-1, -1, -1] },
     Vertex3 { position: [ 1, -1, -1] },
@@ -125,6 +128,8 @@ pub struct RenderContext {
     spritemap: SpriteMap,
     primitives: Primitives,
     ui: Ui,
+    imgui: imgui::ImGui,
+    imgui_renderer: imgui_glium_renderer::Renderer,
 
     pub viewport: Viewport,
     accumulator: FpsAccumulator,
@@ -159,6 +164,10 @@ impl RenderContext {
         let prim = Primitives::new(&display);
         let ui = Ui::new(&display, &viewport);
 
+        let mut imgui = imgui::ImGui::init();
+        imgui.set_ini_filename(None);
+        let renderer = imgui_glium_renderer::Renderer::init(&mut imgui, &display).expect("Failed to initialize renderer");
+
         let accumulator = FpsAccumulator::new();
 
         RenderContext {
@@ -169,6 +178,9 @@ impl RenderContext {
             spritemap: sprite,
             primitives: prim,
             ui: ui,
+
+            imgui: imgui,
+            imgui_renderer: renderer,
 
             accumulator: accumulator,
             viewport: viewport,
@@ -205,6 +217,17 @@ impl RenderContext {
         self.ui
             .render(&self.backend, &mut target, &self.viewport, millis);
 
+        let size_points = self.backend.gl_window().get_inner_size_points().unwrap();
+        let size_pixels = self.backend.gl_window().get_inner_size_pixels().unwrap();;
+        let delta = self.accumulator.delta();
+        let ui = self.imgui.frame(size_points, size_pixels, delta);
+
+        self.accumulator.fps.map(debug::gui::set_fps);
+
+        debug::gui::run(&ui);
+
+        self.imgui_renderer.render(&mut target, ui).expect("Rendering failed");
+
         target.finish().unwrap();
     }
 
@@ -237,6 +260,25 @@ impl RenderContext {
         self.primitives.reload_shaders(&self.backend);
         self.spritemap.reload_shaders(&self.backend);
     }
+
+    pub fn set_mouse(&mut self, mouse_state: &mut MouseState) {
+        let scale = self.imgui.display_framebuffer_scale();
+        self.imgui.set_mouse_pos(
+            mouse_state.pos.0 as f32 / scale.0,
+            mouse_state.pos.1 as f32 / scale.1,
+        );
+        self.imgui.set_mouse_down(
+            &[
+                mouse_state.pressed.0,
+                mouse_state.pressed.1,
+                mouse_state.pressed.2,
+                false,
+                false,
+            ],
+        );
+        self.imgui.set_mouse_wheel(mouse_state.wheel / scale.1);
+        mouse_state.wheel = 0.0;
+    }
 }
 
 pub trait Renderable {
@@ -252,6 +294,8 @@ pub struct FpsAccumulator {
     last_time: u64,
     accumulator: Duration,
     previous_clock: Instant,
+    delta: f32,
+    pub fps: Option<f32>,
 }
 
 impl FpsAccumulator {
@@ -262,12 +306,16 @@ impl FpsAccumulator {
             last_time: 0,
             accumulator: Duration::new(0, 0),
             previous_clock: Instant::now(),
+            delta: 0.0,
+            fps: None,
         }
     }
 
     pub fn step_frame(&mut self) {
         let now = Instant::now();
-        self.accumulator += now - self.previous_clock;
+        let delta = now - self.previous_clock;
+        self.accumulator += delta;
+        self.delta = delta.as_secs() as f32 + delta.subsec_nanos() as f32 / 1_000_000_000.0;
         self.previous_clock = now;
 
         let fixed_time_stamp = Duration::new(0, 16666667);
@@ -278,13 +326,24 @@ impl FpsAccumulator {
         let millis = ::util::get_duration_millis(&Instant::now().duration_since(self.start));
 
         if millis - self.last_time >= 1000 {
-            let ms_per_frame = 1000.0 / self.frame_count as f32;
-            println!("{} ms/frame | {} fps", ms_per_frame, 1000.0 / ms_per_frame);
+            let fps = self.fps();
+            println!("{} ms/frame | {} fps", self.ms_per_frame(), fps);
+            self.fps = Some(fps);
             self.frame_count = 0;
             self.last_time += 1000;
+        } else {
+            self.fps = None;
         }
 
         self.frame_count += 1;
+    }
+
+    pub fn ms_per_frame(&self) -> f32 {
+        1000.0 / self.frame_count as f32
+    }
+
+    pub fn fps(&self) -> f32 {
+        1000.0 / self.ms_per_frame()
     }
 
     pub fn sleep_time(&self) -> Duration {
@@ -294,5 +353,9 @@ impl FpsAccumulator {
     pub fn millis_since_start(&self) -> u64 {
         let duration = Instant::now().duration_since(self.start);
         ::util::get_duration_millis(&duration)
+    }
+
+    pub fn delta(&self) -> f32 {
+        self.delta
     }
 }

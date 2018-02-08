@@ -1,6 +1,8 @@
 use calx_ecs::Entity;
 use world::World;
 
+pub mod gui;
+
 mod text {
     make_global!(DEBUG_TEXT, Option<String>, None);
 }

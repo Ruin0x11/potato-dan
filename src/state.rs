@@ -4,6 +4,7 @@ use GameContext;
 use ai::{self, Ai, AiKind, Action};
 use calx_ecs::Entity;
 use debug;
+use engine::MouseState;
 use ecs::Loadout;
 use ecs::components::*;
 use ecs::prefab;
@@ -27,10 +28,10 @@ impl GameState {
 
         for i in 0..30 {
             world.spawn(prefab::wall(), Point::new(3.0 + (i as f32 * 1.0), 0.0, 15.0));
-            let x = rand::thread_rng().gen_range(30.0, 50.0);
-            let z = rand::thread_rng().gen_range(30.0, 50.0);
-            world.spawn(prefab::mob("Dood").c(Ai::new(AiKind::Guard)), Point::new(x, 0.0, z));
         }
+        let x = rand::thread_rng().gen_range(30.0, 50.0);
+        let z = rand::thread_rng().gen_range(30.0, 50.0);
+        world.spawn(prefab::mob("Dood").c(Ai::new(AiKind::Guard)), Point::new(x, 0.0, z));
 
         GameState {
             frame: 0,
@@ -108,7 +109,7 @@ pub fn get_commands(input: &HashMap<KeyCode, bool>) -> Vec<Command> {
     commands
 }
 
-pub fn game_step(context: &mut GameContext, input: &HashMap<KeyCode, bool>, mouse: &(i32, i32)) {
+pub fn game_step(context: &mut GameContext, input: &HashMap<KeyCode, bool>, mouse: &MouseState) {
     let player_alive = context.state.world.player().map_or(false, |p| context.state.world.contains(p));
     if !player_alive {
         restart_game(context);
@@ -125,7 +126,8 @@ pub fn game_step(context: &mut GameContext, input: &HashMap<KeyCode, bool>, mous
 }
 
 fn process(context: &mut GameContext) {
-    let recheck = context.state.frame % 60 == 0;
+    let poll = debug::gui::get("poll", 60.0, 1.0, 60.0) as u64;
+    let recheck = context.state.frame % poll == 0;
 
     update_camera(context);
     context.state.world.update_physics(recheck);
@@ -166,8 +168,10 @@ fn step_physics(world: &mut World) {
                     phys.dx += phys.accel_x;
                     phys.dy -= phys.accel_y;
                     phys.dz += phys.accel_z;
-                    phys.dx = util::clamp(phys.dx, -0.1, 0.1);
-                    phys.dz = util::clamp(phys.dz, -0.1, 0.1);
+
+                    let top_speed = debug::gui::get("top_speed", 0.1, 0.0, 1.0);
+                    phys.dx = util::clamp(phys.dx, -top_speed, top_speed);
+                    phys.dz = util::clamp(phys.dz, -top_speed, top_speed);
                     phys.accel_y -= 0.01;
 
                     if phys.dx.abs() < 0.01 {
@@ -177,11 +181,12 @@ fn step_physics(world: &mut World) {
                         phys.dz = 0.0;
                     }
                     if (pos.y + phys.dy) > 0.01 {
+                        let decel = debug::gui::get("decel", 0.85, 0.0, 1.0);
                         phys.dy = 0.0;
                         phys.accel_y = 0.0;
                         set_to_ground = true;
-                        phys.dx *= 0.85;
-                        phys.dz *= 0.85;
+                        phys.dx *= decel;
+                        phys.dz *= decel;
                     }
 
                     dx = phys.dx;
@@ -380,10 +385,10 @@ fn restart_game(context: &mut GameContext) {
     *context = GameContext::new();
 }
 
-fn update_look(context: &mut GameContext, mouse: &(i32, i32)) {
+fn update_look(context: &mut GameContext, mouse: &MouseState) {
     let size = renderer::with(|rc| rc.viewport.scaled_size());
     let center = ((size.0 / 2) as i32, (size.1 / 2) as i32);
-    let mouse = (mouse.0.max(0), mouse.1.max(0));
+    let mouse = (mouse.pos.0.max(0), mouse.pos.1.max(0));
 
     let theta = point::angle(center, mouse);
 
@@ -410,8 +415,10 @@ fn move_in_dir(world: &mut World, entity: Entity, dir: Direction) {
     let mut phys = world.ecs_mut().physics.get_mut_or_err(entity);
 
     let offset = dir.to_movement_offset();
-    phys.accel_x = offset.0 as f32 * 0.05;
-    phys.accel_z = offset.1 as f32 * 0.05;
+
+    let accel = debug::gui::get("accel", 0.05, 0.0, 0.5);
+    phys.accel_x = offset.0 as f32 * accel;
+    phys.accel_z = offset.1 as f32 * accel;
     phys.movement_frames += 1;
 }
 
@@ -419,7 +426,8 @@ fn jump(world: &mut World, entity: Entity) {
     let mut phys = world.ecs_mut().physics.get_mut_or_err(entity);
 
     if phys.accel_y > -0.1 {
-        phys.dy = -3.0
+        let jump = debug::gui::get("jump", -3.0, -10.0, 0.0);
+        phys.dy = jump;
     }
 }
 

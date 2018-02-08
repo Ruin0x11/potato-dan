@@ -146,15 +146,25 @@ fn direction_towards(entity: Entity, target_pos: Point, world: &World) -> Option
     let my_pos_i = Point2d::new((my_pos.pos.x * 0.5) as i32, (my_pos.pos.z * 0.5) as i32);
     let target_pos_i = Point2d::new((target_pos.x * 0.5) as i32, (target_pos.z * 0.5) as i32);
 
-    let mut path = world::astar::find_path(my_pos_i, target_pos_i, &world.grid);
+    let ai = &world.ecs().ais.get_or_err(entity).data;
+    if ai.regen_path.get() {
+        let mut path = world::astar::find_path(my_pos_i, target_pos_i, &world.grid);
+        *ai.cached_path.borrow_mut() = path;
+    }
 
-    if path.len() == 0 {
+    let next_pos = ai.cached_path.borrow().first().cloned();
+
+    if next_pos.is_none() {
         return None;
     }
 
-    let next_pos = path.pop().unwrap();
+    for pos in ai.cached_path.borrow().iter() {
+        if let Some(dir) = Direction::from_neighbors(my_pos_i, *pos) {
+            return Some(dir)
+        }
+    }
 
-    Some(Direction::from_neighbors(my_pos_i, next_pos).unwrap())
+    None
 }
 
 fn direction_towards_target(entity: Entity, world: &World) -> Option<Direction> {

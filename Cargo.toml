@@ -4,15 +4,17 @@ version = "0.1.0"
 authors = ["Ian Pickering <ipickering2@gmail.com>"]
 
 [dependencies]
-glium = "0.20.0"
+glium = "0.19.0"
 image = "0.18.0"
 cgmath = "0.16"
 texture_packer = {version = "0.9.1", git = "https://github.com/Ruin0x11/texture_packer" }
 rusttype = "0.2"
 glob = "0.2"
+imgui = "0.0.18"
+imgui-glium-renderer = "0.0.18"
 
 nalgebra = { version = "0.14", features = ["serde-serialize"] }
-ncollide = { version = "0.13", git = "https://github.com/Ruin0x11/ncollide" }
+ncollide = { version = "0.14", path = "../ncollide" }
 
 hlua = "0.4"
 rand = "0.4"
