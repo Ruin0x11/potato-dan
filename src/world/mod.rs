@@ -25,7 +25,7 @@ pub type CollideWorld = CollisionWorld<Point, Isometry3<f32>, CollisionDataExtra
 #[derive(Clone, Copy, Debug)]
 pub enum CollisionDataExtra {
     Entity(Entity),
-    Node(Point2d)
+    Node,
 }
 
 pub struct World {
@@ -292,10 +292,21 @@ impl World {
     }
 
     fn collide_two_entities(&mut self, a: Entity, b: Entity, move_vec: &Matrix3x1<f32>) {
-        if !self.ecs.bullets.has(a) && !self.ecs.bullets.has(b) {
+        if !self.ecs.bullets.has(a) && !self.ecs.bullets.has(b) && self.ecs.charas.has(a) {
+            let mut on_ground = false;
             if let Some(pos) = self.ecs.positions.get_mut(a) {
+                log!("{:?}", move_vec);
                 pos.pos.x += move_vec.x;
+                pos.pos.y += move_vec.y;
                 pos.pos.z += move_vec.z;
+
+                on_ground = move_vec.y.abs() > 0.0;
+            }
+            if let Some(phys) = self.ecs.physics.get_mut(a) {
+                if on_ground {
+                    phys.dy = 0.0;
+                    phys.accel_y = 0.0;
+                }
             }
         }
 
@@ -319,7 +330,6 @@ impl World {
         self.events.push((event, entity));
     }
 
-
     pub fn handle_events(&mut self) {
         while let Some((event, entity)) = self.events.pop() {
             match event {
@@ -333,7 +343,7 @@ impl World {
                 },
                 Event::Collide(vec) => {
                     if let Some(phys) = self.ecs_mut().physics.get_mut(entity) {
-                        phys.impulse(Point::new(-vec.x, 0.0, -vec.z));
+                        phys.impulse(Vector3::new(-vec.x, 0.0, -vec.z));
                     }
                 }
             }

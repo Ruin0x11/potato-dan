@@ -16,4 +16,5 @@ Ecs! {
     bullets: components::Bullet,
     guns: components::Gun,
     holds: components::Holds,
+    bombs: components::Bomb,
 }

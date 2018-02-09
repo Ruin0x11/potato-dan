@@ -222,9 +222,9 @@ impl RenderContext {
         let delta = self.accumulator.delta();
         let ui = self.imgui.frame(size_points, size_pixels, delta);
 
-        self.accumulator.fps.map(debug::gui::set_fps);
+        self.accumulator.fps.map(debug::set_fps);
 
-        debug::gui::run(&ui);
+        debug::run_ui(&ui);
 
         self.imgui_renderer.render(&mut target, ui).expect("Rendering failed");
 
@@ -279,6 +279,10 @@ impl RenderContext {
         self.imgui.set_mouse_wheel(mouse_state.wheel / scale.1);
         mouse_state.wheel = 0.0;
     }
+
+    pub fn delta(&self) -> f32 {
+        self.accumulator.delta()
+    }
 }
 
 pub trait Renderable {
@@ -296,6 +300,7 @@ pub struct FpsAccumulator {
     previous_clock: Instant,
     delta: f32,
     pub fps: Option<f32>,
+    fixed_time_stamp: Duration,
 }
 
 impl FpsAccumulator {
@@ -308,6 +313,7 @@ impl FpsAccumulator {
             previous_clock: Instant::now(),
             delta: 0.0,
             fps: None,
+            fixed_time_stamp: Duration::new(0, 16666667),
         }
     }
 
@@ -318,16 +324,15 @@ impl FpsAccumulator {
         self.delta = delta.as_secs() as f32 + delta.subsec_nanos() as f32 / 1_000_000_000.0;
         self.previous_clock = now;
 
-        let fixed_time_stamp = Duration::new(0, 16666667);
-        while self.accumulator >= fixed_time_stamp {
-            self.accumulator -= fixed_time_stamp;
+        while self.accumulator >= self.fixed_time_stamp {
+            self.accumulator -= self.fixed_time_stamp;
         }
 
         let millis = ::util::get_duration_millis(&Instant::now().duration_since(self.start));
 
         if millis - self.last_time >= 1000 {
             let fps = self.fps();
-            println!("{} ms/frame | {} fps", self.ms_per_frame(), fps);
+            println!("{} ms/frame | {} fps | {} delta", self.ms_per_frame(), fps, self.delta);
             self.fps = Some(fps);
             self.frame_count = 0;
             self.last_time += 1000;
@@ -338,11 +343,11 @@ impl FpsAccumulator {
         self.frame_count += 1;
     }
 
-    pub fn ms_per_frame(&self) -> f32 {
+    fn ms_per_frame(&self) -> f32 {
         1000.0 / self.frame_count as f32
     }
 
-    pub fn fps(&self) -> f32 {
+    fn fps(&self) -> f32 {
         1000.0 / self.ms_per_frame()
     }
 

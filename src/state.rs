@@ -26,12 +26,14 @@ impl GameState {
     pub fn new() -> Self {
         let mut world = World::new();
 
-        for i in 0..30 {
+        for i in 0..debug::get("spawn_size") as u32 {
             world.spawn(prefab::wall(), Point::new(3.0 + (i as f32 * 1.0), 0.0, 15.0));
         }
-        let x = rand::thread_rng().gen_range(30.0, 50.0);
-        let z = rand::thread_rng().gen_range(30.0, 50.0);
-        world.spawn(prefab::mob("Dood").c(Ai::new(AiKind::Guard)), Point::new(x, 0.0, z));
+        for i in 0..debug::get("charas") as u32 {
+            let x = rand::thread_rng().gen_range(30.0, 50.0);
+            let z = rand::thread_rng().gen_range(30.0, 50.0);
+            world.spawn(prefab::mob("Dood").c(Ai::new(AiKind::Guard)), Point::new(x, 0.0, z));
+        }
 
         GameState {
             frame: 0,
@@ -49,6 +51,7 @@ pub enum Command {
     Quit,
     ReloadShaders,
     Restart,
+    Bom,
 }
 
 pub fn get_commands(input: &HashMap<KeyCode, bool>) -> Vec<Command> {
@@ -106,10 +109,16 @@ pub fn get_commands(input: &HashMap<KeyCode, bool>) -> Vec<Command> {
         commands.push(Command::Restart);
     }
 
+    let b = input.get(&KeyCode::B).map_or(false, |b| *b);
+    if b {
+        commands.push(Command::Bom);
+    }
+
     commands
 }
 
-pub fn game_step(context: &mut GameContext, input: &HashMap<KeyCode, bool>, mouse: &MouseState) {
+pub fn game_step(context: &mut GameContext, input: &HashMap<KeyCode, bool>, mouse: &MouseState,
+                 delta: f32) {
     let player_alive = context.state.world.player().map_or(false, |p| context.state.world.contains(p));
     if !player_alive {
         restart_game(context);
@@ -117,36 +126,37 @@ pub fn game_step(context: &mut GameContext, input: &HashMap<KeyCode, bool>, mous
     }
 
     for command in get_commands(input) {
-        run_command(context, command);
+        run_command(context, command, delta);
     }
 
     update_look(context, mouse);
 
-    process(context);
+    process(context, delta);
 }
 
-fn process(context: &mut GameContext) {
-    let poll = debug::gui::get("poll", 60.0, 1.0, 60.0) as u64;
+fn process(context: &mut GameContext, delta: f32) {
+    let poll = debug::get("poll") as u64;
     let recheck = context.state.frame % poll == 0;
 
     update_camera(context);
-    context.state.world.update_physics(recheck);
 
-    step_ai(&mut context.state.world, recheck);
-    step_physics(&mut context.state.world);
+    step_ai(&mut context.state.world, recheck, delta);
+    step_bomb(&mut context.state.world, delta);
+    step_physics(&mut context.state.world, delta);
     step_holds(&mut context.state.world);
     step_gun(&mut context.state.world);
-    step_bullet(&mut context.state.world);
+    step_bullet(&mut context.state.world, delta);
     step_healths(&mut context.state.world);
 
     // TODO: move here
+    context.state.world.update_physics(recheck);
     context.state.world.handle_events();
     context.state.world.purge_dead();
 
     context.state.frame += 1;
 }
 
-fn step_physics(world: &mut World) {
+fn step_physics(world: &mut World, delta: f32) {
     let mut objects = Vec::new();
     for entity in world.entities() {
         if world.ecs().physics.has(*entity) {
@@ -169,39 +179,45 @@ fn step_physics(world: &mut World) {
                     phys.dy -= phys.accel_y;
                     phys.dz += phys.accel_z;
 
-                    let top_speed = debug::gui::get("top_speed", 0.1, 0.0, 1.0);
+                    let top_speed = debug::get("top_speed");
                     phys.dx = util::clamp(phys.dx, -top_speed, top_speed);
                     phys.dz = util::clamp(phys.dz, -top_speed, top_speed);
-                    phys.accel_y -= 0.01;
+                    phys.accel_y -= debug::get("gravity");
 
-                    if phys.dx.abs() < 0.01 {
+                    if phys.dx.abs() * delta < 0.001 {
                         phys.dx = 0.0;
                     }
-                    if phys.dz.abs() < 0.01 {
+                    if phys.dz.abs() * delta < 0.001 {
                         phys.dz = 0.0;
                     }
-                    if (pos.y + phys.dy) > 0.01 {
-                        let decel = debug::gui::get("decel", 0.85, 0.0, 1.0);
-                        phys.dy = 0.0;
-                        phys.accel_y = 0.0;
-                        set_to_ground = true;
+
+                    dx = phys.dx;
+                    dz = phys.dz;
+
+                    // TODO: replace with nphysics
+                    if phys.dy < 0.01 {
+                        let decel = debug::get("decel");
                         phys.dx *= decel;
                         phys.dz *= decel;
                     }
 
-                    dx = phys.dx;
+                    if (pos.y + phys.dy * delta) > 0.001 {
+                        phys.dy = 0.0;
+                        phys.accel_y = 0.0;
+                        set_to_ground = true;
+                    }
+
                     dy = phys.dy;
-                    dz = phys.dz;
                 }
 
                 let mut pos = world.ecs_mut().positions.get_mut_or_err(entity);
-                pos.pos.x += dx;
+                pos.pos.x += dx * delta;
                 if set_to_ground {
                     pos.pos.y = 0.0;
                 } else {
-                    pos.pos.y += dy;
+                    pos.pos.y += dy * delta;
                 }
-                pos.pos.z += dz;
+                pos.pos.z += dz * delta;
             },
             PhysicsKind::Bullet => {
                 {
@@ -213,9 +229,9 @@ fn step_physics(world: &mut World) {
                 }
 
                 let mut pos = world.ecs_mut().positions.get_mut_or_err(entity);
-                pos.pos.x += dx;
-                pos.pos.y += dy;
-                pos.pos.z += dz;
+                pos.pos.x += dx * delta;
+                pos.pos.y += dy * delta;
+                pos.pos.z += dz * delta;
             }
         }
 
@@ -226,7 +242,7 @@ fn step_physics(world: &mut World) {
     }
 }
 
-fn step_bullet(world: &mut World) {
+fn step_bullet(world: &mut World, delta: f32) {
     let mut bullets = Vec::new();
     for entity in world.entities() {
         if world.ecs().bullets.has(*entity) {
@@ -238,7 +254,7 @@ fn step_bullet(world: &mut World) {
         let mut remove = false;
         {
             let mut bullet_compo = world.ecs_mut().bullets.get_mut_or_err(bullet);
-            bullet_compo.time_left -= 1.0;
+            bullet_compo.time_left -= delta;
             if bullet_compo.time_left < 0.0 {
                 remove = true;
             }
@@ -294,6 +310,76 @@ fn step_holds(world: &mut World) {
     }
 }
 
+fn step_bomb(world: &mut World, delta: f32) {
+    let mut bombs = Vec::new();
+    for entity in world.entities() {
+        if world.ecs().bombs.has(*entity) {
+            bombs.push(*entity);
+        }
+    }
+
+    for bomb_ent in bombs {
+        let exploded = world.ecs().bombs.get_or_err(bomb_ent).time_left < 0.0;
+        if exploded {
+            let pos = world.position(bomb_ent).unwrap().pos;
+            explod(world, pos);
+            world.push_event(Event::Destroy, bomb_ent)
+        } else {
+            let mut bomb = world.ecs_mut().bombs.get_mut_or_err(bomb_ent);
+            bomb.time_left -= delta;
+        }
+    }
+}
+
+use std::f32::consts::PI;
+use ncollide::world::{CollisionGroups, CollisionObject3, CollisionWorld, GeometricQueryType};
+use nalgebra::{self, Isometry3, Point3, Translation3, Vector3, Matrix3x1};
+use ncollide::query::Ray3;
+use world::CollisionDataExtra;
+
+fn explod(world: &mut World, point: Point) {
+    let num_rays = 32;
+    let groups = CollisionGroups::new();
+    let mut impulses = Vec::new();
+
+    let radius = debug::get("explod_size");
+    let force = debug::get("explod_force");
+    for i in 0u32..num_rays {
+        let angle = (i as f32 / num_rays as f32) * PI * 2.0;
+        let dir = Vector3::new(angle.sin() * radius, 0.0, angle.cos() * radius);
+        let ray = Ray3::new(point, dir);
+        for (obj, colray) in world.collision_world.interferences_with_ray(&ray, &groups) {
+            if let CollisionDataExtra::Entity(entity) = *obj.data() {
+                if world.ecs().physics.has(entity) {
+                    let contact = point + dir * colray.toi;
+                    if let Some(impulse) = blast_impulse(&point, contact, force / num_rays as f32) {
+                        impulses.push((entity, impulse));
+                    }
+                }
+            }
+        }
+    }
+
+    for (entity, impulse) in impulses {
+        let mut phys = world.ecs_mut().physics.get_mut_or_err(entity);
+        phys.impulse(impulse);
+    }
+}
+
+fn blast_impulse(blast: &Point, center: Point, power: f32) -> Option<Vector3<f32>> {
+    let dir = Vector3::from(center - blast);
+    let dist = dir.norm();
+
+    // ignore bodies exactly at the blast point - blast direction is undefined
+    if (dist == 0.0) {
+        return None;
+    }
+
+    let dist_inv = 1.0 / dist;
+    let magni = power * dist_inv * dist_inv;
+    Some(Vector3::from(dir * magni))
+}
+
 fn step_gun(world: &mut World) {
     let mut guns = Vec::new();
     for entity in world.entities() {
@@ -315,6 +401,13 @@ fn step_gun(world: &mut World) {
             let pos = world.ecs().positions.get_or_err(*owner);
             (pos.pos, pos.dir)
         };
+        {
+            let mut gun = world.ecs_mut().guns.get_mut_or_err(gun);
+            if !gun.shooting {
+                gun.reset_refire();
+            }
+            gun.shooting = false;
+        }
         let mut gun_pos = world.ecs_mut().positions.get_mut_or_err(gun);
         gun_pos.dir = holder_dir;
         let p2: &mut Point = &mut gun_pos.pos;
@@ -340,7 +433,7 @@ fn step_healths(world: &mut World) {
     }
 }
 
-fn step_ai(world: &mut World, recheck: bool) {
+fn step_ai(world: &mut World, recheck: bool, delta: f32) {
     let mut ais = Vec::new();
     for entity in world.entities() {
         if world.ecs().ais.has(*entity) {
@@ -397,13 +490,14 @@ fn update_look(context: &mut GameContext, mouse: &MouseState) {
     pos.dir = theta;
 }
 
-fn run_command(context: &mut GameContext, command: Command) {
+fn run_command(context: &mut GameContext, command: Command, delta: f32) {
     let player = context.state.world.player().unwrap();
     match command {
         Command::Move(dir) => move_in_dir(&mut context.state.world, player, dir),
         Command::Jump => jump(&mut context.state.world, player),
-        Command::Shoot => shoot(&mut context.state.world, player),
+        Command::Shoot => shoot(&mut context.state.world, player, delta),
         Command::Wait => stop_moving(&mut context.state.world, player),
+        Command::Bom => bom(&mut context.state.world, player),
 
         Command::ReloadShaders => renderer::with_mut(|rc| rc.reload_shaders()),
         Command::Restart => restart_game(context),
@@ -416,7 +510,7 @@ fn move_in_dir(world: &mut World, entity: Entity, dir: Direction) {
 
     let offset = dir.to_movement_offset();
 
-    let accel = debug::gui::get("accel", 0.05, 0.0, 0.5);
+    let accel = debug::get("accel");
     phys.accel_x = offset.0 as f32 * accel;
     phys.accel_z = offset.1 as f32 * accel;
     phys.movement_frames += 1;
@@ -426,7 +520,7 @@ fn jump(world: &mut World, entity: Entity) {
     let mut phys = world.ecs_mut().physics.get_mut_or_err(entity);
 
     if phys.accel_y > -0.1 {
-        let jump = debug::gui::get("jump", -3.0, -10.0, 0.0);
+        let jump = debug::get("jump");
         phys.dy = jump;
     }
 }
@@ -439,32 +533,52 @@ fn stop_moving(world: &mut World, entity: Entity) {
     phys.accel_z = 0.0;
 }
 
-fn shoot(world: &mut World, firing: Entity) {
+fn bom(world: &mut World, entity: Entity) {
+    let pos = {
+        let pos = world.ecs().positions.get_or_err(entity);
+        let dir = pos.dir;
+        point::relative(pos.pos, Point::new(1.5, 0.0, 0.0), pos.dir)
+    };
+
+    world.spawn(prefab::bomb(), pos);
+}
+
+fn shoot(world: &mut World, firing: Entity, delta: f32) {
     let gun = {
         let holds = world.ecs().holds.get_or_err(firing);
         let mut gun = None;
         for entity in holds.0.keys() {
             if let Some(g) = world.ecs().guns.get(*entity) {
-                gun = Some(*g);
+                gun = Some(*entity);
                 break;
             }
         }
         gun
     };
 
-    if let Some(gun) = gun {
+    if let Some(gun_ent) = gun {
+        let bullet_count = {
+            let mut gun = world.ecs_mut().guns.get_mut_or_err(gun_ent);
+            gun.shoot(delta)
+        };
+
         let pos = {
             let pos = world.ecs().positions.get_or_err(firing);
             let dir = pos.dir;
             point::relative(pos.pos, Point::new(1.5, 0.0, 0.0), pos.dir)
         };
-        let dir = world.ecs().positions.get_or_err(firing).dir + rand::thread_rng().gen_range(-gun.spread, gun.spread);
-        if let Some(bullet) = world.spawn(prefab::bullet(firing), pos) {
-            let mut phys = world.ecs_mut().physics.get_mut_or_err(bullet);
 
-            let dx = dir.cos();
-            let dz = dir.sin();
-            phys.impulse(Point::new(dx, 0.0, dz));
+        let spread = world.ecs().guns.get_or_err(gun_ent).spread;
+        for count in 0..bullet_count {
+            let dir = world.ecs().positions.get_or_err(firing).dir + rand::thread_rng().gen_range(-spread, spread);
+            if let Some(bullet) = world.spawn(prefab::bullet(firing), pos) {
+                let mut phys = world.ecs_mut().physics.get_mut_or_err(bullet);
+
+                let speed = debug::get("bullet_speed");
+                let dx = dir.cos() * speed;
+                let dz = dir.sin() * speed;
+                phys.impulse(Vector3::new(dx, 0.0, dz));
+            }
         }
     }
 }

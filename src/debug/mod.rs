@@ -1,7 +1,10 @@
 use calx_ecs::Entity;
 use world::World;
+use imgui::{self, ImGui, Ui};
 
 pub mod gui;
+
+use self::gui::*;
 
 mod text {
     make_global!(DEBUG_TEXT, Option<String>, None);
@@ -44,4 +47,65 @@ pub fn update(world: &World) {
     entity::instance::with(|e| if let &Some(entity) = e {
                                add_text(entity_info(entity, world));
                            });
+}
+
+pub fn get(key: &str) -> f32 {
+    instance::with_mut(|state| state.vars.entry(key.to_string()).or_insert(Variable::default()).val)
+}
+
+pub fn set_fps(fps: f32) {
+    instance::with_mut(|state| {
+        if state.fps.len() > 15 {
+            state.fps.pop_front();
+        }
+        state.fps.push_back(fps);
+    })
+}
+
+pub fn log(s: &str) {
+    instance::with_mut(|state| {
+        state.log.add(&format!("{}\n", s));
+    })
+}
+
+make_global!(UI_STATE, gui::UiState, gui::UiState::new());
+
+pub fn run_ui(ui: &imgui::Ui) {
+    instance::with_mut(|state| {
+        if state.show_log {
+            state.log.run(ui, &mut state.show_log);
+        }
+        ui.window(im_str!("Hello world"))
+            .size((300.0, 800.0), imgui::ImGuiCond::FirstUseEver)
+            .menu_bar(true)
+            .build(|| {
+                ui.text(im_str!("This...is...imgui-rs!"));
+
+                ui.menu_bar(|| {
+                    ui.menu(im_str!("View")).build(|| {
+                        ui.menu_item(im_str!("Log window"))
+                            .selected(&mut state.show_log)
+                            .build();
+                    });
+                });
+
+                imgui::PlotLines::new(ui, im_str!("FPS"), &Vec::from(state.fps.clone()))
+                    .overlay_text(im_str!("{}", state.fps.back().cloned().unwrap_or(0.0)))
+                    .build();
+                ui.separator();
+                let mouse_pos = ui.imgui().mouse_pos();
+                ui.text(im_str!("Mouse Position: ({:.1},{:.1})", mouse_pos.0, mouse_pos.1));
+
+                ui.separator();
+                if ui.small_button(im_str!("Reload")) {
+                    state.reset_vars();
+                }
+
+                for (key, mut var) in state.vars.iter_mut() {
+                    ui.slider_float(im_str!("{}", key), &mut var.val, var.min, var.max)
+                        .build();
+                }
+            });
+
+    })
 }

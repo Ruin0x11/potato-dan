@@ -83,7 +83,9 @@ fn game_loop() {
     'outer: loop {
         let mut resize = None;
         let mut quit = false;
+        let mut delta = 0.0;
         renderer::with_mut(|rc| {
+            delta = rc.delta();
             rc.poll_events(|event| match event {
                 glium::glutin::Event::WindowEvent { event, .. } => {
                     match event {
@@ -161,7 +163,7 @@ fn game_loop() {
 
         // Ensure that the renderer isn't borrowed during the game step, so it can be used in
         // the middle of any game routine (like querying the player for input)
-        state::game_step(&mut context, &keys, &mouse_state);
+        state::game_step(&mut context, &keys, &mouse_state, delta);
 
         renderer::with_mut(|renderer| renderer.update(&context.state.world));
 

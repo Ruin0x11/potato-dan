@@ -191,7 +191,7 @@ fn update_memory(entity: Entity, world: &World) {
                 None => return,
             };
             let result = (sensor.callback)(world, entity, ai);
-            // debug_ecs!(world, entity, "{:?}, {}", fact, result);
+            log!("{:?}, {}", fact, result);
             new_memory.facts.insert(fact.clone(), result);
         });
     }
@@ -214,7 +214,7 @@ fn update_memory(entity: Entity, world: &World) {
 pub fn update_next_action(entity: Entity, world: &World) {
     let ai = world.ecs().ais.get_or_err(entity);
     let next_action = ai.data.get_next_action();
-    //debug_ecs!(world, entity, "Do thing: {:?}", next_action);
+    log!("Do thing: {:?}", next_action);
     *ai.data.next_action.borrow_mut() = next_action;
 }
 
@@ -261,7 +261,7 @@ fn update_goal(entity: Entity, world: &World) {
     let ai = &world.ecs().ais.get_or_err(entity).data;
 
     if ai.goal_finished() {
-        //debug_ecs!(world, entity, "Last goal finished: {:?}.", ai.last_goal.borrow());
+        log!("Last goal finished: {:?}.", ai.last_goal.borrow());
 
         // Target finished, stop tracking it.
         finish_target(entity, world);

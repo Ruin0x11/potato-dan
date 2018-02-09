@@ -7,6 +7,7 @@ use point::*;
 use world::World;
 
 use ncollide::world::CollisionObjectHandle;
+use nalgebra::Vector3;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Name {
@@ -121,10 +122,10 @@ impl Physics {
         }
     }
 
-    pub fn impulse(&mut self, direction: Point) {
-        self.dx += direction.x;
-        self.dy += direction.y;
-        self.dz += direction.z;
+    pub fn impulse(&mut self, dir: Vector3<f32>) {
+        self.dx += dir.x;
+        self.dy += dir.y;
+        self.dz += dir.z;
     }
 }
 
@@ -245,9 +246,47 @@ pub enum BulletKind {
 pub struct Gun {
     pub bullet: BulletKind,
     pub spread: f32,
-    pub fire_rate: f32,
     pub clip_size: u16,
-    pub reload_time: f32,
+    pub fire_rate_secs: f32,
+    pub reload_time_secs: f32,
+
+    pub shooting: bool,
+    pub secs_to_refire: f32,
+}
+
+impl Gun {
+    pub fn new(bullet: BulletKind, spread: f32, clip_size: u16, fire_rate_ms: u16, reload_time_ms: u16)
+               -> Self {
+
+        let fire_rate_secs = fire_rate_ms as f32 / 1000.0;
+        Gun {
+            bullet: bullet,
+            spread: spread,
+            clip_size: clip_size,
+            fire_rate_secs: fire_rate_secs,
+            reload_time_secs: reload_time_ms as f32 / 1000.0,
+
+            shooting: false,
+            secs_to_refire: 0.0,
+        }
+    }
+
+    pub fn shoot(&mut self, delta: f32) -> u32 {
+        self.shooting = true;
+
+        let mut count = 0;
+        self.secs_to_refire -= delta;
+        log!("shoot {}", self.secs_to_refire);
+        while self.secs_to_refire < 0.0 {
+            count += 1;
+            self.secs_to_refire += self.fire_rate_secs;
+        }
+        count
+    }
+
+    pub fn reset_refire(&mut self) {
+        self.secs_to_refire = 0.0;
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -273,5 +312,18 @@ pub struct Holds(pub HashMap<Entity, bool>);
 impl Holds {
     pub fn new() -> Self {
         Holds(HashMap::new())
+    }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Bomb {
+    pub time_left: f32,
+}
+
+impl Bomb {
+    pub fn new() -> Self {
+        Bomb {
+            time_left: 2.0,
+        }
     }
 }
