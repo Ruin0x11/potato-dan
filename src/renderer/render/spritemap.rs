@@ -118,6 +118,7 @@ impl<'a> Renderable for SpriteMap {
                     .wrap_function(glium::uniforms::SamplerWrapFunction::Clamp)
                     .minify_filter(glium::uniforms::MinifySamplerFilter::Nearest)
                     .magnify_filter(glium::uniforms::MagnifySamplerFilter::Nearest),
+                rotation: viewport.rot,
                 time: time as u32,
             };
 

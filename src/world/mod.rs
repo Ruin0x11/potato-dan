@@ -10,6 +10,7 @@ use ecs::components::*;
 use point;
 use point::*;
 use world::astar::Grid;
+use world::tiles::Tiles;
 
 use ncollide::world::{CollisionGroups, CollisionObject3, CollisionWorld, GeometricQueryType};
 use nalgebra::{self, Isometry3, Point3, Translation3, Vector3, Matrix3x1};
@@ -19,6 +20,8 @@ use ncollide::query::{self, Proximity};
 use ncollide::events::{ContactEvents};
 
 pub mod astar;
+pub mod tiles;
+pub mod gen;
 
 pub type CollideWorld = CollisionWorld<Point, Isometry3<f32>, CollisionDataExtra>;
 
@@ -34,6 +37,7 @@ pub struct World {
     pub camera: Option<Entity>,
     pub collision_world: CollideWorld,
     pub grid: Grid,
+    pub tiles: Tiles,
     shapes: HashMap<PhysicsShape, CollisionData>,
     events: Vec<(Event, Entity)>,
     kill_list: Vec<Entity>,
@@ -83,8 +87,8 @@ fn shape_handles() -> HashMap<PhysicsShape, CollisionData> {
 }
 
 impl World {
-    pub fn new() -> Self {
-        let size = (64, 64);
+    pub fn new(w: u32, h: u32) -> Self {
+        let size = (w, h);
         let mut collision_world = CollisionWorld::new(0.02);
         let grid = Grid::new(&mut collision_world, size);
         let mut world = World {
@@ -93,6 +97,7 @@ impl World {
             camera: None,
             collision_world: collision_world,
             grid: grid,
+            tiles: Tiles::new(size, 0),
             shapes: shape_handles(),
             events: Vec::new(),
             kill_list: Vec::new(),
@@ -144,6 +149,10 @@ impl World {
                 self.ecs().positions.get(cam.following).cloned().map(|p| p.pos)
             }
         })
+    }
+
+    pub fn camera_rot(&self) -> f32 {
+        self.camera.map_or(0.0, |c| self.ecs().cameras.get_or_err(c).rot)
     }
 
     pub fn in_bounds(&self, pos: &Point) -> bool {

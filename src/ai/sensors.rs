@@ -1,7 +1,9 @@
 use std::collections::HashMap;
 
+use alga::linear::EuclideanSpace;
 use calx_ecs::Entity;
 
+use debug;
 use ecs::traits::*;
 use world::World;
 
@@ -46,27 +48,17 @@ macro_rules! generate_sensors {
 }
 
 generate_sensors! {
-    // HasTarget, false, sense_has_target;
+    HasTarget, false, sense_has_target;
     // TargetVisible, false, sense_target_visible;
-    // TargetDead, false, sense_target_dead;
-    NextToTarget, false, sense_always_false;
+    TargetDead, false, sense_target_dead;
 
-    // HealthLow, false, sense_health_low;
+    HealthLow, false, sense_health_low;
 
-    // CanDoRanged, false, sense_always_false; //TODO
-    // CanDoMelee, false, sense_always_true; //TODO
-    // HasThrowable, false, sense_has_throwable;
-    AtPosition, false, sense_always_false;
-    // TargetInInventory, false, sense_target_in_inventory;
-    // OnTopOfTarget, false, sense_on_top_of_target;
-    // HasHealing, false, sense_always_false;
-    // FoundItem, false, sense_found_item;
-    // HealingItemNearby, false, sense_always_false;
-    // ThrowableNearby, false, sense_throwable_nearby;
+    OnTopOfTarget, false, sense_on_top_of_target;
     // PathToTargetClear, false, sense_path_to_target_clear;
 
-    // TargetInRange, false, sense_target_in_range;
-    // TargetClose, false, sense_target_close;
+    TargetInRange, false, sense_target_in_range;
+    TargetClose, false, sense_target_close;
 
     Exists, true, sense_always_true;
     Moving, false, sense_always_false;
@@ -92,15 +84,11 @@ generate_sensors! {
 //         entity.has_los(pos, world, Some(6))
 //     })
 // }
-// 
-// fn sense_target_dead(world: &World, _entity: Entity, ai: &Ai) -> bool {
-//     ai.data
-//       .targets
-//       .borrow()
-//       .peek()
-//       .map_or(false, |t| t.entity.is_some() && !world.is_alive(t.entity.unwrap()))
-// }
-// 
+
+fn sense_target_dead(world: &World, _entity: Entity, ai: &Ai) -> bool {
+    false
+}
+
 // fn sense_next_to_target(world: &World, entity: Entity, ai: &Ai) -> bool {
 //     ai.data.targets.borrow().peek().map_or(false, |t| {
 //         if t.entity.is_none() {
@@ -115,20 +103,6 @@ generate_sensors! {
 //     })
 // }
 // 
-// fn sense_on_top_of_target(world: &World, entity: Entity, ai: &Ai) -> bool {
-//     ai.data.targets.borrow().peek().map_or(false, |t| {
-//         if t.entity.is_none() {
-//             return false;
-//         }
-// 
-//         let pos = match world.position(t.entity.unwrap()) {
-//             Some(p) => p,
-//             None => return false,
-//         };
-// 
-//         world.position(entity).map_or(false, |ep| ep == pos)
-//     })
-// }
 // 
 // fn sense_path_to_target_clear(world: &World, entity: Entity, ai: &Ai) -> bool {
 //     ai.data.targets.borrow().peek().map_or(false, |t| {
@@ -152,36 +126,36 @@ generate_sensors! {
 //         }
 //     })
 // }
-// 
-// fn sense_target_in_range(world: &World, entity: Entity, ai: &Ai) -> bool {
-//     ai.data.targets.borrow().peek().map_or(false, |t| {
-//         if t.entity.is_none() {
-//             return false;
-//         }
-// 
-//         let pos = match world.position(t.entity.unwrap()) {
-//             Some(p) => p,
-//             None => return false,
-//         };
-// 
-//         pos.distance(world.position(entity).unwrap()) < 8.0
-//     })
-// }
-// 
-// fn sense_target_close(world: &World, entity: Entity, ai: &Ai) -> bool {
-//     ai.data.targets.borrow().peek().map_or(false, |t| {
-//         if t.entity.is_none() {
-//             return false;
-//         }
-//         let pos = match world.position(t.entity.unwrap()) {
-//             Some(p) => p,
-//             None => return false,
-//         };
-// 
-//         pos.distance(world.position(entity).unwrap()) < 5.0
-//     })
-// }
-// 
+
+fn target_within_dist(world: &World, entity: Entity, target: &Target, dist: f32) -> bool {
+        let pos = match target.position(world) {
+            Some(p) => p,
+            None => return false,
+        };
+
+    let dist_to_target = pos.distance(&world.position(entity).unwrap().pos);
+    log!("{}", dist_to_target);
+    dist_to_target < dist
+}
+
+fn sense_on_top_of_target(world: &World, entity: Entity, ai: &Ai) -> bool {
+    ai.data.targets.borrow().peek().map_or(false, |t| {
+        target_within_dist(world, entity, t, debug::get("ai_on_top"))
+    })
+}
+
+fn sense_target_in_range(world: &World, entity: Entity, ai: &Ai) -> bool {
+    ai.data.targets.borrow().peek().map_or(false, |t| {
+        target_within_dist(world, entity, t, debug::get("ai_in_range"))
+    })
+}
+
+fn sense_target_close(world: &World, entity: Entity, ai: &Ai) -> bool {
+    ai.data.targets.borrow().peek().map_or(false, |t| {
+        target_within_dist(world, entity, t, debug::get("ai_close"))
+    })
+}
+
 // fn sense_target_in_inventory(world: &World, entity: Entity, ai: &Ai) -> bool {
 //     ai.data.targets.borrow().peek().map_or(false, |t| {
 //         if t.entity.is_none() {
@@ -192,23 +166,16 @@ generate_sensors! {
 //     })
 // }
 
-// fn sense_at_position(world: &World, entity: Entity, ai: &Ai) -> bool {
-//     ai.data
-//       .important_pos
-//       .borrow()
-//       .map_or(false, |pos| world.position(entity).map_or(false, |ep| ep == pos))
-// }
-// 
-// fn sense_has_target(_world: &World, _entity: Entity, ai: &Ai) -> bool {
-//     !ai.data.targets.borrow().is_empty()
-// }
-// 
-// fn sense_health_low(world: &World, entity: Entity, _ai: &Ai) -> bool {
-//     world.ecs()
-//          .healths
-//          .map_or(false, |h| h.percent() < 0.2, entity)
-// }
-// 
+fn sense_has_target(_world: &World, _entity: Entity, ai: &Ai) -> bool {
+    !ai.data.targets.borrow().is_empty()
+}
+
+fn sense_health_low(world: &World, entity: Entity, _ai: &Ai) -> bool {
+    world.ecs()
+         .healths
+         .map_or(false, |h| h.percent() < debug::get("ai_health_low"), entity)
+}
+
 // fn sense_found_item(world: &World, entity: Entity, _ai: &Ai) -> bool {
 //     world.seen_entities(entity)
 //          .iter()

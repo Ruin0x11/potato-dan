@@ -19,6 +19,11 @@ pub fn angle<I: Into<(i32, i32)>>(a: I, b: I) -> f32 {
     y.atan2(x)
 }
 
+pub fn angle_3f(a: Point, b: Point) -> f32 {
+    let y = (b.z - a.z) as f32;
+    let x = (b.x - a.x) as f32;
+    y.atan2(x)
+}
 
 pub fn rotate_around(point: Point, pivot: Point, rot: f32) -> Point {
     let now_x = (pivot.x + (point.x - pivot.x) * (-rot).cos() + (point.z - pivot.z) * (-rot).sin());

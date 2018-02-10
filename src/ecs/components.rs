@@ -135,6 +135,7 @@ impl Physics {
 pub struct Camera {
     pub primary: bool,
     pub following: Entity,
+    pub rot: f32,
 }
 
 impl Camera {
@@ -142,6 +143,7 @@ impl Camera {
         Camera {
             primary: true,
             following: following,
+            rot: 0.0,
         }
     }
 

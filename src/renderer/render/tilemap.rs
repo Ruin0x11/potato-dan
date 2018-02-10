@@ -28,6 +28,7 @@ pub struct TileMap {
 
     tile_atlas: TileAtlas,
     valid: bool,
+    pub camera: (f32, f32),
 }
 
 use point::Direction::*;
@@ -48,6 +49,7 @@ impl TileMap {
             program: program,
             tile_atlas: tile_atlas,
             valid: false,
+            camera: (0.0, 0.0),
         };
 
         tilemap.redraw(display, 0);
@@ -99,10 +101,12 @@ impl<'a> Renderable for TileMap {
 
             let uniforms = uniform! {
                 matrix: proj,
+                camera: self.camera,
                 tex: texture.sampled()
                     .wrap_function(glium::uniforms::SamplerWrapFunction::Clamp)
                     .minify_filter(glium::uniforms::MinifySamplerFilter::Nearest)
                     .magnify_filter(glium::uniforms::MagnifySamplerFilter::Nearest),
+                rotation: viewport.rot,
                 tex_ratio: tex_ratio,
             };
 
@@ -127,12 +131,12 @@ use point;
 
 fn make_map(world: &World, viewport: &Viewport) -> Vec<(DrawTile, (f32, f32))> {
     let mut res = Vec::new();
-    let camera = world.camera_pos().unwrap_or(point::zero());
-    for i in 0..32 {
-        for j in 0..32 {
-            let x = (i as f32) - (camera.x);
-            let z = (j as f32) - (camera.z);
-            res.push((DrawTile(i % 4), (x, z)));
+    let (w, h) = world.size();
+    for i in 0..w {
+        for j in 0..h {
+            if let Some(var) = world.tiles.get((i, j)) {
+                res.push((DrawTile(*var), (i as f32, j as f32)));
+            }
         }
     }
     res
@@ -149,16 +153,18 @@ impl RenderUpdate for TileMap {
     }
 
     fn update(&mut self, world: &World, viewport: &Viewport) {
-        self.tiles = make_map(world, viewport);
-        self.valid = false;
+        self.valid = self.tiles.len() == world.tiles.len();
+        if !self.valid {
+            self.tiles = make_map(world, viewport);
+            self.instances.clear();
+        }
+        let camera = world.camera_pos().unwrap_or(point::zero());
+        self.camera = (camera.x, camera.z);
     }
 
     fn redraw<F: Facade>(&mut self, display: &F, msecs: u64) {
-        if !self.valid {
+        if self.instances.is_empty() {
             self.make_instances(display, msecs);
-            self.valid = true;
-        } else {
-            self.update_instances(msecs);
         }
     }
 }

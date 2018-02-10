@@ -17,6 +17,7 @@ extern crate glium;
 #[macro_use]
 extern crate imgui;
 
+extern crate alga;
 extern crate bincode;
 extern crate cgmath;
 extern crate crypto;

@@ -160,6 +160,7 @@ impl RenderContext {
             size: (SCREEN_WIDTH, SCREEN_HEIGHT),
             scale: scale,
             camera: (0.0, 0.0, 0.0),
+            rot: 0.0,
         };
 
         let bg = Background::new(&display);
@@ -196,6 +197,8 @@ impl RenderContext {
         if let Some(text) = debug::pop_text() {
             self.ui.set_text(text);
         }
+
+        self.viewport.rot = world.camera_rot();
 
         self.tilemap.update(world, &self.viewport);
         self.spritemap.update(world, &self.viewport);
@@ -248,6 +251,7 @@ impl RenderContext {
             size: (w, h),
             scale: scale,
             camera: self.viewport.camera,
+            rot: self.viewport.rot,
         };
 
         self.ui = Ui::new(&self.backend, &self.viewport);

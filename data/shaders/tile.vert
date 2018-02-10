@@ -6,6 +6,8 @@ in vec2 map_coord;
 
 uniform mat4 matrix;
 uniform vec2 tex_ratio;
+uniform vec2 camera;
+uniform float rotation;
 
 out highp vec2 v_TexCoords;
 
@@ -25,7 +27,17 @@ mat4 rotate_x(float theta)
     );
 }
 
+mat4 rotate_z(float theta)
+{
+    return mat4(
+        vec4( cos(theta), sin(theta), 0.0, 0.0),
+        vec4(-sin(theta), cos(theta), 0.0, 0.0),
+        vec4(0.0,                0.0, 0.0, 0.0),
+        vec4(0.0,                0.0, 0.0, 1.0)
+    );
+}
+
 void main() {
-  gl_Position = vec4(map_coord + position, 0.0, 1.0) * matrix * rotate_x(0.785398);
+  gl_Position = vec4(map_coord + position - camera, 0.0, 1.0) * matrix * rotate_z(rotation) * rotate_x(0.785398);
   v_TexCoords = normal_tile(position);
 }

@@ -26,6 +26,7 @@ use toml;
 #[derive(Clone, Debug)]
 pub enum Action {
     Go(Direction),
+    Shoot(f32),
     Wait
 }
 
@@ -123,7 +124,7 @@ impl AiData {
                 return true;
             }
 
-            if self.targets.borrow().peek().unwrap().entity.is_none() {
+            if self.targets.borrow().peek().unwrap().obj == TargetObject::Nothing {
                 return true;
             }
         }
@@ -227,17 +228,18 @@ fn check_target(entity: Entity, world: &World) {
 
     {
         let target = ai.targets.borrow();
-        if !ai.targets.borrow().is_empty() && ai.targets.borrow().peek().unwrap().entity.is_some() {
-            let entity = ai.targets.borrow().peek().unwrap().entity.unwrap();
-            let dead = target.peek()
-                             .map_or(true, |t| world.ecs().positions.get(entity).is_none());
-            let removed = target.peek()
-                                .map_or(true, |t| !world.ecs().contains(entity));
-            //let in_inventory =
-            //    target.peek()
-            //          .map_or(false, |t| world.entities_in(entity).contains(&entity));
-            if (dead || removed) {
-                target_is_invalid = true;
+        if !ai.targets.borrow().is_empty() && ai.targets.borrow().cur_exists() {
+            if let TargetObject::Entity(entity) = ai.targets.borrow().peek().unwrap().obj {
+                let dead = target.peek()
+                    .map_or(true, |t| world.ecs().positions.get(entity).is_none());
+                let removed = target.peek()
+                    .map_or(true, |t| !world.ecs().contains(entity));
+                //let in_inventory =
+                //    target.peek()
+                //          .map_or(false, |t| world.entities_in(entity).contains(&entity));
+                if (dead || removed) {
+                    target_is_invalid = true;
+                }
             }
         }
     }
@@ -357,9 +359,18 @@ fn planner_from_toml() -> AiPlanner {
 use std::collections::BinaryHeap;
 use std::cmp::Ordering;
 
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq)]
+pub enum TargetObject {
+    Entity(Entity),
+    Position(Point),
+    Nothing,
+}
+
+impl Eq for TargetObject {}
+
 #[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Target {
-    entity: Option<Entity>,
+    obj: TargetObject,
     priority: u32,
     goal: AiGoal,
 }
@@ -367,9 +378,17 @@ pub struct Target {
 impl Target {
     pub fn new(goal: AiGoal) -> Self {
         Target {
-            entity: None,
+            obj: TargetObject::Nothing,
             priority: 1,
             goal: goal,
+        }
+    }
+
+    pub fn position(&self, world: &World) -> Option<Point> {
+        match self.obj {
+            TargetObject::Entity(e) => world.position(e).map(|p| p.pos),
+            TargetObject::Position(p) => Some(p),
+            TargetObject::Nothing => None,
         }
     }
 }
@@ -386,6 +405,7 @@ impl PartialOrd for Target {
         Some(other.cmp(self))
     }
 }
+
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Targets {
@@ -415,6 +435,10 @@ impl Targets {
 
     pub fn peek(&self) -> Option<&Target> {
         self.targets.peek()
+    }
+
+    pub fn cur_exists(&self) -> bool {
+        self.peek().map_or(false, |t| t.obj != TargetObject::Nothing)
     }
 
     /// DO NOT CALL DIRECTLY, since the AI would not know to create a new plan for the new target.

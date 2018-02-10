@@ -7,6 +7,7 @@ pub struct Viewport {
     pub size: (u32, u32),
     pub scale: f32,
     pub camera: (f32, f32, f32),
+    pub rot: f32,
 }
 
 pub type RendererSubarea = ([[f32; 4]; 4], glium::Rect);

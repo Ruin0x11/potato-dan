@@ -4,6 +4,7 @@ use goap::*;
 use ecs::traits::*;
 use point::*;
 use ai::Action;
+use point;
 use point::*;
 use rand::{self, Rng};
 use world::{self, World};
@@ -53,8 +54,10 @@ macro_rules! generate_ai_actions {
 }
 
 generate_ai_actions! {
-    Wait, ai_go;
-    Go, ai_go;
+    Wait, ai_wait;
+    MoveCloser, ai_move_closer;
+    ShootAt, ai_shoot_at;
+    RunAway, ai_run_away;
 }
 
 
@@ -88,7 +91,7 @@ fn ai_wait(_entity: Entity, _world: &World) -> Action {
 //     Action::Move(Direction::choose8())
 // }
 // 
-fn ai_go(entity: Entity, world: &World) -> Action {
+fn ai_move_closer(entity: Entity, world: &World) -> Action {
      match direction_towards_target(entity, world) {
          Some(dir) => Action::Go(dir),
          None => Action::Wait,
@@ -123,23 +126,29 @@ fn ai_go(entity: Entity, world: &World) -> Action {
 //     Action::SwingAt(ai.targets.borrow().peek().unwrap().entity.unwrap())
 // }
 // 
-// fn ai_shoot_at(entity: Entity, world: &World) -> Action {
-//     // TODO: box rng in RefCell
-//     if rand::thread_rng().gen() {
-//         return ai_wander(entity, world);
-//     }
-// 
-//     let ai = &world.ecs().ais.get_or_err(entity).data;
-//     Action::ShootAt(ai.targets.borrow().peek().unwrap().entity.unwrap())
-// }
-// 
-// fn ai_run_away(entity: Entity, world: &World) -> Action {
-//     match direction_towards_target(entity, world) {
-//         Some(dir) => Action::Move(dir.reverse()),
-//         None => Action::Wait,
-//     }
-// }
-// 
+fn ai_shoot_at(entity: Entity, world: &World) -> Action {
+    let angle = angle_towards_target(entity, world);
+    Action::Shoot(angle)
+}
+
+fn ai_run_away(entity: Entity, world: &World) -> Action {
+    match direction_towards_target(entity, world) {
+        Some(dir) => Action::Go(dir.reverse()),
+        None => Action::Wait,
+    }
+}
+
+fn angle_towards_target(entity: Entity, world: &World) -> f32 {
+    let ais = &world.ecs().ais;
+    let ai = &ais.get_or_err(entity).data;
+
+    let target = world.player().unwrap();
+    let target_pos = world.position(target).unwrap().pos;
+    let my_pos = world.position(entity).unwrap().pos;
+
+    point::angle_3f(my_pos, target_pos)
+}
+
 fn direction_towards(entity: Entity, target_pos: Point, world: &World) -> Option<Direction> {
     let my_pos = world.position(entity).unwrap();
 
@@ -176,12 +185,11 @@ fn direction_towards_target(entity: Entity, world: &World) -> Option<Direction> 
     direction_towards(entity, target_pos, world)
 }
 
-
 fn warn_of_unreachable_states(entity: Entity, world: &World, ai: &Ai) {
-    // warn_ecs!(world, entity, "AI stuck!");
+    log!("AI stuck!");
     match ai.data.get_plan() {
         Ok(plan) => {
-            // warn_ecs!(world, entity, "plan: {:?}", plan);
+            log!("plan: {:?}", plan);
         },
         Err(failed_state) => {
             let mut needed: Vec<AiProp> =
@@ -209,8 +217,8 @@ fn warn_of_unreachable_states(entity: Entity, world: &World, ai: &Ai) {
                 }
             });
 
-            // warn_ecs!(world, entity, "No actions could be found to make these properties true:");
-            // warn_ecs!(world, entity, "{:?}", needed);
+            log!("No actions could be found to make these properties true:");
+            log!("{:?}", needed);
         },
     }
 }

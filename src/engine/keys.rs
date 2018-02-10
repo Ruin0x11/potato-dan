@@ -62,6 +62,8 @@ pub enum KeyCode {
     Comma,
     Period,
 
+    Shift,
+
     Unknown(char),
 }
 

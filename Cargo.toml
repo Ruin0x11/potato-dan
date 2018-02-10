@@ -13,6 +13,7 @@ glob = "0.2"
 imgui = "0.0.18"
 imgui-glium-renderer = "0.0.18"
 
+alga = "0.5"
 nalgebra = { version = "0.14", features = ["serde-serialize"] }
 ncollide = { version = "0.14", path = "../ncollide" }
 

@@ -21,11 +21,9 @@ macro_rules! make_global {
 #[macro_export]
 macro_rules! log(
     ($tag:expr) => {
-        use debug;
-        debug::log(&format!($tag));
+        ::debug::log(&format!($tag));
     };
     ($tag:expr, $($args:tt)+) => {
-        use debug;
-        debug::log(&format!($tag, $($args)+));
+        ::debug::log(&format!($tag, $($args)+));
     };
 );

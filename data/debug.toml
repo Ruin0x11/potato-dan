@@ -6,15 +6,15 @@ max=100.0
 
 [[keys]]
 name="top_speed"
-default=5.0
+default=2.0
 min=0.01
 max=20.0
 
 [[keys]]
 name="accel"
-default=5.0
+default=400.0
 min=0.0
-max=50.0
+max=500.0
 
 [[keys]]
 name="decel"
@@ -36,7 +36,7 @@ max=2.0
 
 [[keys]]
 name="spread"
-default=0.4
+default=0.1
 min=0.01
 max=2.0
 
@@ -90,9 +90,9 @@ max=128.0
 
 [[keys]]
 name="explod_force"
-default=100.0
+default=500.0
 min=0.0
-max=100000.0
+max=1000.0
 
 [[keys]]
 name="explod_size"
@@ -102,6 +102,36 @@ max=10000.0
 
 [[keys]]
 name="charas"
-default=0.0
+default=2.0
 min=0.0
 max=128.0
+
+[[keys]]
+name="world_size"
+default=32.0
+min=16.0
+max=128.0
+
+[[keys]]
+name="ai_on_top"
+default=1.0
+min=0.0
+max=10.0
+
+[[keys]]
+name="ai_close"
+default=8.0
+min=0.0
+max=10.0
+
+[[keys]]
+name="ai_in_range"
+default=10.0
+min=0.0
+max=32.0
+
+[[keys]]
+name="ai_health_low"
+default=32.0
+min=0.0
+max=10.0

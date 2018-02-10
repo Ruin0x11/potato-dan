@@ -83,6 +83,7 @@ impl<'a> Renderable for Primitives {
         let uniforms = uniform! {
             matrix: proj,
             time: time as u32,
+            rotation: viewport.rot,
         };
 
         let params = glium::DrawParameters {

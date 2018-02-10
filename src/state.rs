@@ -15,7 +15,7 @@ use point;
 use rand::{self, Rng};
 use renderer;
 use util;
-use world::{World, Event};
+use world::{self, World, Event};
 
 pub struct GameState {
     pub frame: u64,
@@ -24,18 +24,20 @@ pub struct GameState {
 
 impl GameState {
     pub fn new() -> Self {
-        let mut world = World::new();
+        let siz = debug::get("world_size") as u32;
+        let w = siz;
+        let h = siz;
+        let mut world = World::new(w, h);
 
-        for i in 0..debug::get("spawn_size") as u32 {
-            for j in 0..debug::get("spawn_size") as u32 {
-                world.spawn(prefab::wall(), Point::new(3.0 + i as f32, 0.0, 3.0 + j as f32));
-            }
-        }
         for i in 0..debug::get("charas") as u32 {
-            let x = rand::thread_rng().gen_range(30.0, 50.0);
-            let z = rand::thread_rng().gen_range(30.0, 50.0);
-            world.spawn(prefab::mob("Dood").c(Ai::new(AiKind::Guard)), Point::new(x, 0.0, z));
+            let x = rand::thread_rng().gen_range(1.0, (w - 1) as f32);
+            let z = rand::thread_rng().gen_range(1.0, (h - 1) as f32);
+            let mob = world.spawn(prefab::mob("Dood").c(Ai::new(AiKind::SeekTarget)), Point::new(x, 0.0, z)).unwrap();
+            let gun = world.spawn(prefab::gun(), point::zero()).unwrap();
+            world.equip(mob, gun);
         }
+
+        world::gen::city(&mut world);
 
         GameState {
             frame: 0,
@@ -54,6 +56,7 @@ pub enum Command {
     ReloadShaders,
     Restart,
     Bom,
+    RotateCamera(f32),
 }
 
 pub fn get_commands(input: &HashMap<KeyCode, bool>) -> Vec<Command> {
@@ -106,14 +109,23 @@ pub fn get_commands(input: &HashMap<KeyCode, bool>) -> Vec<Command> {
         commands.push(Command::Shoot);
     }
 
-    let q = input.get(&KeyCode::Q).map_or(false, |b| *b);
-    if q {
+    let z = input.get(&KeyCode::Z).map_or(false, |b| *b);
+    if z {
         commands.push(Command::Restart);
     }
 
     let b = input.get(&KeyCode::B).map_or(false, |b| *b);
     if b {
         commands.push(Command::Bom);
+    }
+
+    let q = input.get(&KeyCode::Q).map_or(false, |b| *b);
+    let e = input.get(&KeyCode::E).map_or(false, |b| *b);
+    if q {
+        commands.push(Command::RotateCamera(-0.1));
+    }
+    else if e {
+        commands.push(Command::RotateCamera(0.1));
     }
 
     commands
@@ -142,7 +154,7 @@ fn process(context: &mut GameContext, delta: f32) {
 
     update_camera(context);
 
-    step_ai(&mut context.state.world, recheck, delta);
+    step_ai(&mut context.state.world, true, delta);
     step_bomb(&mut context.state.world, delta);
     step_physics(&mut context.state.world, delta);
     step_holds(&mut context.state.world);
@@ -206,11 +218,11 @@ fn step_physics(world: &mut World, delta: f32) {
 
                     let top_speed = debug::get("top_speed");
                     if phys.dx.abs() < top_speed {
-                        phys.dx += phys.accel_x;
+                        phys.dx += phys.accel_x * delta;
                     }
-                    phys.dy -= phys.accel_y;
+                    phys.dy -= phys.accel_y * delta;
                     if phys.dz.abs() < top_speed {
-                        phys.dz += phys.accel_z;
+                        phys.dz += phys.accel_z * delta;
                     }
 
                     if phys.dx.abs() * delta < 0.001 {
@@ -231,8 +243,8 @@ fn step_physics(world: &mut World, delta: f32) {
                         phys.accel_y = 0.0;
                         phys.dy = 0.0;
                         let decel = debug::get("decel");
-                        phys.dx *= decel;
-                        phys.dz *= decel;
+                        phys.dx *= decel * delta;
+                        phys.dz *= decel * delta;
                     } else {
                         phys.accel_y -= debug::get("gravity");
                     }
@@ -410,7 +422,7 @@ fn blast_impulse(blast: &Point, center: Point, power: f32) -> Option<Vector3<f32
     }
 
     let dist_inv = 1.0 / dist;
-    let magni = power * dist_inv * dist_inv;
+    let magni = power * dist_inv;
     Some(Vector3::from(dir * magni))
 }
 
@@ -477,11 +489,12 @@ fn step_ai(world: &mut World, recheck: bool, delta: f32) {
 
     for entity in ais {
         let action = ai::run(entity, world, recheck);
-        if recheck {
-            println!("{:?}", action);
-        }
         match action {
             Some(Action::Go(dir)) => move_in_dir(world, entity, dir),
+            Some(Action::Shoot(dir)) => {
+                face_dir(world, entity, dir);
+                shoot(world, entity, delta);
+            }
             _ => stop_moving(world, entity),
         }
     }
@@ -520,8 +533,8 @@ fn update_look(context: &mut GameContext, mouse: &MouseState) {
     let theta = point::angle(center, mouse);
 
     let player = context.state.world.player().unwrap();
-    let mut pos = context.state.world.ecs_mut().positions.get_mut_or_err(player);
-    pos.dir = theta;
+    let camera_rot = context.state.world.camera_rot();
+    face_dir(&mut context.state.world, player, theta - camera_rot);
 }
 
 fn run_command(context: &mut GameContext, command: Command, delta: f32) {
@@ -533,10 +546,23 @@ fn run_command(context: &mut GameContext, command: Command, delta: f32) {
         Command::Wait => stop_moving(&mut context.state.world, player),
         Command::Bom => bom(&mut context.state.world, player),
 
+        Command::RotateCamera(rot) => rotate_camera(&mut context.state.world, rot),
         Command::ReloadShaders => renderer::with_mut(|rc| rc.reload_shaders()),
         Command::Restart => restart_game(context),
         Command::Quit => (),
     }
+}
+
+fn rotate_camera(world: &mut World, rot: f32) {
+    world.camera.map(|c| {
+        let mut cam = world.ecs_mut().cameras.get_mut_or_err(c);
+        cam.rot += rot;
+    });
+}
+
+fn face_dir(world: &mut World, entity: Entity, dir: f32) {
+    let mut pos = world.ecs_mut().positions.get_mut_or_err(entity);
+    pos.dir = dir;
 }
 
 fn move_in_dir(world: &mut World, entity: Entity, dir: Direction) {
