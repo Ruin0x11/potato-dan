@@ -8,11 +8,13 @@ pub mod background;
 pub mod spritemap;
 pub mod primitives;
 mod viewport;
+mod tilemap;
 
 use debug;
 use point;
 use self::background::Background;
 use self::spritemap::SpriteMap;
+use self::tilemap::TileMap;
 use self::primitives::Primitives;
 pub use self::viewport::Viewport;
 
@@ -126,6 +128,7 @@ pub struct RenderContext {
 
     background: Background,
     spritemap: SpriteMap,
+    tilemap: TileMap,
     primitives: Primitives,
     ui: Ui,
     imgui: imgui::ImGui,
@@ -161,6 +164,7 @@ impl RenderContext {
 
         let bg = Background::new(&display);
         let sprite = SpriteMap::new(&display);
+        let tile = TileMap::new(&display);
         let prim = Primitives::new(&display);
         let ui = Ui::new(&display, &viewport);
 
@@ -176,6 +180,7 @@ impl RenderContext {
 
             background: bg,
             spritemap: sprite,
+            tilemap: tile,
             primitives: prim,
             ui: ui,
 
@@ -192,6 +197,7 @@ impl RenderContext {
             self.ui.set_text(text);
         }
 
+        self.tilemap.update(world, &self.viewport);
         self.spritemap.update(world, &self.viewport);
         self.primitives.update(world, &self.viewport);
         self.ui.update(world, &self.viewport);
@@ -204,6 +210,10 @@ impl RenderContext {
         let millis = self.accumulator.millis_since_start();
 
         self.background
+            .render(&self.backend, &mut target, &self.viewport, millis);
+
+        self.tilemap.redraw(&self.backend, millis);
+        self.tilemap
             .render(&self.backend, &mut target, &self.viewport, millis);
 
         self.spritemap.redraw(&self.backend, millis);

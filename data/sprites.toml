@@ -25,6 +25,9 @@ name="objects.png"
 [[maps]]
 name="gun.png"
 
+[[maps]]
+name="tile.png"
+
 [[tiles]]
 name="body"
 map="chara2.png"
@@ -101,3 +104,10 @@ map="gun.png"
 offset=[0, 0]
 count=[21, 8]
 size=[64, 64]
+
+[[tiles]]
+name="tile"
+map="tile.png"
+offset=[0, 0]
+count=[2, 2]
+size=[32, 32]

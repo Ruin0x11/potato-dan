@@ -27,7 +27,9 @@ impl GameState {
         let mut world = World::new();
 
         for i in 0..debug::get("spawn_size") as u32 {
-            world.spawn(prefab::wall(), Point::new(3.0 + (i as f32 * 1.0), 0.0, 15.0));
+            for j in 0..debug::get("spawn_size") as u32 {
+                world.spawn(prefab::wall(), Point::new(3.0 + i as f32, 0.0, 3.0 + j as f32));
+            }
         }
         for i in 0..debug::get("charas") as u32 {
             let x = rand::thread_rng().gen_range(30.0, 50.0);
@@ -164,6 +166,8 @@ fn step_physics(world: &mut World, delta: f32) {
         }
     }
 
+    let mut groups = CollisionGroups::new();
+
     for entity in objects {
         let kind = world.ecs_mut().physics.get_mut_or_err(entity).kind;
         let mut dx;
@@ -174,15 +178,40 @@ fn step_physics(world: &mut World, delta: f32) {
                 let mut set_to_ground = false;
                 {
                     let pos = world.ecs().positions.get_or_err(entity).pos;
+
+                    let dir = Vector3::new(0.0, 10.0, 0.0);
+                    let ray = Ray3::new(pos, dir);
+                    let mut on_object = false;
+                    let mut change_dy = None;
+
+                    let grounded = world.ecs().physics.get_or_err(entity).grounded;
+                    for (obj, colray) in world.collision_world
+                        .interferences_with_ray(&ray, &groups) {
+                            if let CollisionDataExtra::Entity(e) = *obj.data() {
+                                if e != entity {
+                                    on_object = true;
+                                    let contact = pos + dir * colray.toi;
+                                    let player = world.player().unwrap();
+                                    log!("{} {} {}", contact, player == e, player == entity);
+                                    change_dy = Some(0.0);
+                                }
+                            }
+                        }
+
+                    if on_object {
+                        log!("gr {} obj {} ch {:?}", grounded, on_object, change_dy);
+                    }
+
                     let mut phys = world.ecs_mut().physics.get_mut_or_err(entity);
-                    phys.dx += phys.accel_x;
-                    phys.dy -= phys.accel_y;
-                    phys.dz += phys.accel_z;
 
                     let top_speed = debug::get("top_speed");
-                    phys.dx = util::clamp(phys.dx, -top_speed, top_speed);
-                    phys.dz = util::clamp(phys.dz, -top_speed, top_speed);
-                    phys.accel_y -= debug::get("gravity");
+                    if phys.dx.abs() < top_speed {
+                        phys.dx += phys.accel_x;
+                    }
+                    phys.dy -= phys.accel_y;
+                    if phys.dz.abs() < top_speed {
+                        phys.dz += phys.accel_z;
+                    }
 
                     if phys.dx.abs() * delta < 0.001 {
                         phys.dx = 0.0;
@@ -192,22 +221,27 @@ fn step_physics(world: &mut World, delta: f32) {
                     }
 
                     dx = phys.dx;
+                    dy = phys.dy;
                     dz = phys.dz;
 
-                    // TODO: replace with nphysics
-                    if phys.dy < 0.01 {
+                    let on_ground = (pos.y + phys.dy * delta) > 0.001 && dy > -0.1;
+                    phys.grounded = on_ground;
+
+                    if phys.grounded {
+                        phys.accel_y = 0.0;
+                        phys.dy = 0.0;
                         let decel = debug::get("decel");
                         phys.dx *= decel;
                         phys.dz *= decel;
+                    } else {
+                        phys.accel_y -= debug::get("gravity");
                     }
 
-                    if (pos.y + phys.dy * delta) > 0.001 {
-                        phys.dy = 0.0;
-                        phys.accel_y = 0.0;
+                    if on_ground {
                         set_to_ground = true;
+                    } else if phys.grounded {
+                        dy = 0.0;
                     }
-
-                    dy = phys.dy;
                 }
 
                 let mut pos = world.ecs_mut().positions.get_mut_or_err(entity);
@@ -517,12 +551,12 @@ fn move_in_dir(world: &mut World, entity: Entity, dir: Direction) {
 }
 
 fn jump(world: &mut World, entity: Entity) {
-    let mut phys = world.ecs_mut().physics.get_mut_or_err(entity);
+    //let mut phys = world.ecs_mut().physics.get_mut_or_err(entity);
 
-    if phys.accel_y > -0.1 {
-        let jump = debug::get("jump");
-        phys.dy = jump;
-    }
+    //if phys.grounded {
+    //    let jump = debug::get("jump");
+    //    phys.dy = jump;
+    //}
 }
 
 fn stop_moving(world: &mut World, entity: Entity) {

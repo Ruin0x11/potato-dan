@@ -293,20 +293,9 @@ impl World {
 
     fn collide_two_entities(&mut self, a: Entity, b: Entity, move_vec: &Matrix3x1<f32>) {
         if !self.ecs.bullets.has(a) && !self.ecs.bullets.has(b) && self.ecs.charas.has(a) {
-            let mut on_ground = false;
             if let Some(pos) = self.ecs.positions.get_mut(a) {
-                log!("{:?}", move_vec);
                 pos.pos.x += move_vec.x;
-                pos.pos.y += move_vec.y;
                 pos.pos.z += move_vec.z;
-
-                on_ground = move_vec.y.abs() > 0.0;
-            }
-            if let Some(phys) = self.ecs.physics.get_mut(a) {
-                if on_ground {
-                    phys.dy = 0.0;
-                    phys.accel_y = 0.0;
-                }
             }
         }
 

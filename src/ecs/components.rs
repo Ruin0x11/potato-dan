@@ -99,6 +99,7 @@ pub struct Physics {
     pub movement_frames: u32,
     pub shape: PhysicsShape,
     pub kind: PhysicsKind,
+    pub grounded: bool,
 
     #[serde(skip_serializing)]
     #[serde(skip_deserializing)]
@@ -118,6 +119,7 @@ impl Physics {
             movement_frames: 0,
             shape: shape,
             kind: kind,
+            grounded: true,
             handle: None,
         }
     }
