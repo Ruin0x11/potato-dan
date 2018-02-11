@@ -180,6 +180,8 @@ fn step_physics(world: &mut World, delta: f32) {
 
     let mut groups = CollisionGroups::new();
 
+    let friction = debug::get("friction");
+
     for entity in objects {
         let kind = world.ecs_mut().physics.get_mut_or_err(entity).kind;
         let mut dx;
@@ -193,37 +195,17 @@ fn step_physics(world: &mut World, delta: f32) {
                     let mut phys = world.ecs_mut().physics.get_mut_or_err(entity);
 
                     let top_speed = debug::get("top_speed");
-                    if phys.dx.abs() < top_speed {
-                        phys.dx += phys.accel_x * delta;
-                    }
-                    phys.dy -= phys.accel_y * delta;
-                    if phys.dz.abs() < top_speed {
-                        phys.dz += phys.accel_z * delta;
-                    }
 
-                    if phys.dx.abs() * delta < 0.001 {
-                        phys.dx = 0.0;
-                    }
-                    if phys.dz.abs() * delta < 0.001 {
-                        phys.dz = 0.0;
-                    }
+                    let decel = 1.0 / (1.0 + (delta * friction));
+                    phys.vel += phys.accel * delta;
+                    phys.vel *= decel;
 
-                    dx = phys.dx;
-                    dy = phys.dy;
-                    dz = phys.dz;
+                    dx = phys.vel.x;
+                    dy = phys.vel.y;
+                    dz = phys.vel.z;
 
-                    let on_ground = (pos.y + phys.dy * delta) > 0.001 && dy > -0.1;
+                    let on_ground = (pos.y + phys.vel.y * delta) > 0.001 && dy > -0.1;
                     phys.grounded = on_ground;
-
-                    if phys.grounded {
-                        phys.accel_y = 0.0;
-                        phys.dy = 0.0;
-                        let decel = debug::get("decel");
-                        phys.dx *= decel * delta;
-                        phys.dz *= decel * delta;
-                    } else {
-                        phys.accel_y -= debug::get("gravity");
-                    }
 
                     if on_ground {
                         set_to_ground = true;
@@ -245,9 +227,9 @@ fn step_physics(world: &mut World, delta: f32) {
                 {
                     let pos = world.ecs().positions.get_or_err(entity).pos;
                     let mut phys = world.ecs_mut().physics.get_mut_or_err(entity);
-                    dx = phys.dx;
-                    dy = phys.dy;
-                    dz = phys.dz;
+                    dx = phys.vel.x;
+                    dy = phys.vel.y;
+                    dz = phys.vel.z;
                 }
 
                 let mut pos = world.ecs_mut().positions.get_mut_or_err(entity);
@@ -384,7 +366,7 @@ fn explod(world: &mut World, point: Point) {
 
     for (entity, impulse) in impulses {
         let mut phys = world.ecs_mut().physics.get_mut_or_err(entity);
-        phys.impulse(impulse);
+        phys.vel += impulse;
     }
 }
 
@@ -464,6 +446,7 @@ fn step_ai(world: &mut World, recheck: bool, delta: f32) {
     }
 
     for entity in ais {
+        stop_moving(world, entity);
         let action = ai::run(entity, world, recheck);
         match action {
             Some(Action::Go(dir)) => move_in_dir(world, entity, dir),
@@ -542,13 +525,17 @@ fn face_dir(world: &mut World, entity: Entity, dir: f32) {
 }
 
 fn move_in_dir(world: &mut World, entity: Entity, dir: Direction) {
-    let mut phys = world.ecs_mut().physics.get_mut_or_err(entity);
+    let mut rot = dir.to_angle() + PI/2.0;
 
-    let offset = dir.to_movement_offset();
+    if world.player().map_or(false, |p| p == entity) {
+        let theta = world.camera_rot();
+        rot += world.camera_rot();
+    }
 
     let accel = debug::get("accel");
-    phys.accel_x = offset.0 as f32 * accel;
-    phys.accel_z = offset.1 as f32 * accel;
+    let mut phys = world.ecs_mut().physics.get_mut_or_err(entity);
+    phys.accel.x = rot.sin() as f32 * accel;
+    phys.accel.z = rot.cos() as f32 * accel;
     phys.movement_frames += 1;
 }
 
@@ -565,8 +552,8 @@ fn stop_moving(world: &mut World, entity: Entity) {
     let mut phys = world.ecs_mut().physics.get_mut_or_err(entity);
 
     phys.movement_frames = 0;
-    phys.accel_x = 0.0;
-    phys.accel_z = 0.0;
+    phys.accel.x = 0.0;
+    phys.accel.z = 0.0;
 }
 
 fn bom(world: &mut World, entity: Entity) {
@@ -613,7 +600,7 @@ fn shoot(world: &mut World, firing: Entity, delta: f32) {
                 let speed = debug::get("bullet_speed");
                 let dx = dir.cos() * speed;
                 let dz = dir.sin() * speed;
-                phys.impulse(Vector3::new(dx, 0.0, dz));
+                phys.vel += Vector::new(dx, 0.0, dz);
             }
         }
     }

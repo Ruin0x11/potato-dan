@@ -90,12 +90,8 @@ impl Position {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Physics {
-    pub dx: f32,
-    pub dy: f32,
-    pub dz: f32,
-    pub accel_x: f32,
-    pub accel_y: f32,
-    pub accel_z: f32,
+    pub vel: Vector,
+    pub accel: Vector,
     pub movement_frames: u32,
     pub shape: PhysicsShape,
     pub kind: PhysicsKind,
@@ -110,24 +106,14 @@ pub struct Physics {
 impl Physics {
     pub fn new(shape: PhysicsShape, kind: PhysicsKind) -> Self {
         Physics {
-            dx: 0.0,
-            dy: 0.0,
-            dz: 0.0,
-            accel_x: 0.0,
-            accel_y: 0.0,
-            accel_z: 0.0,
+            vel: Vector::new(0.0, 0.0, 0.0),
+            accel: Vector::new(0.0, 0.0, 0.0),
             movement_frames: 0,
             shape: shape,
             kind: kind,
             grounded: true,
             handle: None,
         }
-    }
-
-    pub fn impulse(&mut self, dir: Vector3<f32>) {
-        self.dx += dir.x;
-        self.dy += dir.y;
-        self.dz += dir.z;
     }
 }
 

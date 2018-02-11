@@ -6,7 +6,7 @@ max=1000.0
 
 [[keys]]
 name="bullet_speed"
-default=20.0
+default=10.0
 min=1.0
 max=100.0
 
@@ -18,13 +18,13 @@ max=20.0
 
 [[keys]]
 name="accel"
-default=400.0
+default=50.0
 min=0.0
 max=500.0
 
 [[keys]]
-name="decel"
-default=1.2
+name="friction"
+default=7.0
 min=0.0
 max=10.0
 
@@ -72,21 +72,21 @@ max=1000.0
 
 [[keys]]
 name="bullet_time"
-default=1.0
+default=2.0
 min=0.01
 max=5.0
 
 [[keys]]
 name="bullet_damage"
-default=10.0
+default=1.0
 min=1.0
 max=100.0
 
 [[keys]]
 name="health"
-default=100.0
+default=1000.0
 min=1.0
-max=1000.0
+max=10000.0
 
 [[keys]]
 name="spawn_size"

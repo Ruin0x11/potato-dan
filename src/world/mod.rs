@@ -351,7 +351,7 @@ impl World {
                 },
                 Event::Collide(vec) => {
                     if let Some(phys) = self.ecs_mut().physics.get_mut(entity) {
-                        phys.impulse(Vector3::new(-vec.x, 0.0, -vec.z));
+                        phys.vel += Vector3::new(-vec.x, 0.0, -vec.z);
                     }
                 }
             }
@@ -363,9 +363,4 @@ pub enum Event {
     Hurt(i32),
     Destroy,
     Collide(Matrix3x1<f32>),
-}
-
-
-pub struct PhysicsWorld {
-    
 }

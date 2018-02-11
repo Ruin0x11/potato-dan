@@ -18,14 +18,14 @@ pub enum Direction {
 }
 
 pub static DIRECTIONS: [Direction; 8] = [
-    Direction::N,
-    Direction::NE,
-    Direction::E,
-    Direction::SE,
     Direction::S,
-    Direction::SW,
-    Direction::W,
+    Direction::SE,
+    Direction::E,
+    Direction::NE,
+    Direction::N,
     Direction::NW,
+    Direction::W,
+    Direction::SW,
 ];
 
 impl fmt::Display for Direction {
