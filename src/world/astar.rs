@@ -60,6 +60,7 @@ pub struct Grid {
 impl Grid {
     pub fn new(world: &mut CollideWorld, size: (u32, u32)) -> Self {
         let mut nodes = HashMap::new();
+        let size = (size.0 * 2, size.1 * 2);
 
         for x in 0..size.0 {
             for z in 0..size.1 {
@@ -84,8 +85,8 @@ impl Grid {
         for x in 0..self.size.0 {
             for z in 0..self.size.1 {
                 let pos = Point2d::new(x as i32, z as i32);
-                let mins = Point::new((x*2) as f32, -10.0, (z*2) as f32);
-                let maxs = Point::new((x*2) as f32 + 2.0, 10.0, (z*2) as f32 + 2.0);
+                let mins = Point::new((x) as f32 + 0.2, -10.0, (z) as f32 + 0.2);
+                let maxs = Point::new((x) as f32 + 0.8,  10.0, (z) as f32 + 0.8);
                 let aabb = AABB::new(mins, maxs);
                 let mut i = world.interferences_with_aabb(&aabb, &self.groups);
                 let blocked = i.next().is_some();

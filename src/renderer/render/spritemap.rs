@@ -192,25 +192,31 @@ fn make_sprites(world: &World, viewport: &Viewport) -> Vec<(DrawSprite, (i32, i3
                     let ear_kind = (chara.ear_kind % EAR_COUNT) + ord * EAR_COUNT;
                     let face_kind = (chara.face_kind % FACE_COUNT) + ord * FACE_COUNT;
 
+                    let add_pos = if phys.movement_frames / 4 == 1 {
+                        -1
+                    } else {
+                        0
+                    };
+
                     if tail_occluded {
-                        push_sprite(tail_kind, (-32, 32), "tail");
+                        push_sprite(tail_kind, (-32 + add_pos, 32), "tail");
                     }
 
-                    push_sprite(body_kind, (0, 0), "body");
+                    push_sprite(body_kind, (0 + add_pos, 0), "body");
 
                     // TODO: move to movement logic
                     if phys.movement_frames != 0 {
                         feet_kind += ((phys.movement_frames / 5) % 6) + 1;
                     }
                     push_sprite(feet_kind, (0, 64), "feet");
-                    push_sprite(jacket_kind, (0,  -10), "jacket");
-                    push_sprite(hair_kind, (-16, 8), "hair");
-                    push_sprite(chara.helmet_kind, (-14, -16), "helmet");
-                    push_sprite(ear_kind, (-16, -48), "ears");
-                    push_sprite(face_kind, (0, 0), "face");
+                    push_sprite(jacket_kind, (0 + add_pos,  -10), "jacket");
+                    push_sprite(hair_kind, (-16 + add_pos, 8), "hair");
+                    push_sprite(chara.helmet_kind, (-14 + add_pos, -16), "helmet");
+                    push_sprite(ear_kind, (-16 + add_pos, -48), "ears");
+                    push_sprite(face_kind, (0 + add_pos, 0), "face");
 
                     if !tail_occluded {
-                        push_sprite(tail_kind, (-32, 32), "tail");
+                        push_sprite(tail_kind, (-32 + add_pos, 32), "tail");
                     }
                 },
                 Some(&Appearance::Object(ref object)) => {

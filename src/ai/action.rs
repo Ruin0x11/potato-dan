@@ -152,8 +152,8 @@ fn angle_towards_target(entity: Entity, world: &World) -> f32 {
 fn direction_towards(entity: Entity, target_pos: Point, world: &World) -> Option<Direction> {
     let my_pos = world.position(entity).unwrap();
 
-    let my_pos_i = Point2d::new((my_pos.pos.x * 0.5) as i32, (my_pos.pos.z * 0.5) as i32);
-    let target_pos_i = Point2d::new((target_pos.x * 0.5) as i32, (target_pos.z * 0.5) as i32);
+    let my_pos_i = Point2d::new((my_pos.pos.x) as i32, (my_pos.pos.z) as i32);
+    let target_pos_i = Point2d::new((target_pos.x) as i32, (target_pos.z) as i32);
 
     let ai = &world.ecs().ais.get_or_err(entity).data;
     if ai.regen_path.get() {

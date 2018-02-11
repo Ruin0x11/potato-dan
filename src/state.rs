@@ -156,6 +156,7 @@ fn process(context: &mut GameContext, delta: f32) {
 
     step_ai(&mut context.state.world, true, delta);
     step_bomb(&mut context.state.world, delta);
+    context.state.world.update_physics(recheck);
     step_physics(&mut context.state.world, delta);
     step_holds(&mut context.state.world);
     step_gun(&mut context.state.world);
@@ -163,7 +164,6 @@ fn process(context: &mut GameContext, delta: f32) {
     step_healths(&mut context.state.world);
 
     // TODO: move here
-    context.state.world.update_physics(recheck);
     context.state.world.handle_events();
     context.state.world.purge_dead();
 
@@ -190,30 +190,6 @@ fn step_physics(world: &mut World, delta: f32) {
                 let mut set_to_ground = false;
                 {
                     let pos = world.ecs().positions.get_or_err(entity).pos;
-
-                    let dir = Vector3::new(0.0, 10.0, 0.0);
-                    let ray = Ray3::new(pos, dir);
-                    let mut on_object = false;
-                    let mut change_dy = None;
-
-                    let grounded = world.ecs().physics.get_or_err(entity).grounded;
-                    for (obj, colray) in world.collision_world
-                        .interferences_with_ray(&ray, &groups) {
-                            if let CollisionDataExtra::Entity(e) = *obj.data() {
-                                if e != entity {
-                                    on_object = true;
-                                    let contact = pos + dir * colray.toi;
-                                    let player = world.player().unwrap();
-                                    log!("{} {} {}", contact, player == e, player == entity);
-                                    change_dy = Some(0.0);
-                                }
-                            }
-                        }
-
-                    if on_object {
-                        log!("gr {} obj {} ch {:?}", grounded, on_object, change_dy);
-                    }
-
                     let mut phys = world.ecs_mut().physics.get_mut_or_err(entity);
 
                     let top_speed = debug::get("top_speed");

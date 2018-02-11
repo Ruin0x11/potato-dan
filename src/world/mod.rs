@@ -18,6 +18,7 @@ use ncollide::narrow_phase::{ContactAlgorithm3};
 use ncollide::shape::{Ball, Cylinder, Cuboid, Plane, ShapeHandle3};
 use ncollide::query::{self, Proximity};
 use ncollide::events::{ContactEvents};
+use util::translational_ccd_motion_clamping::TranslationalCCDMotionClamping;
 
 pub mod astar;
 pub mod tiles;
@@ -35,8 +36,11 @@ pub struct World {
     ecs: Ecs,
     player: Option<Entity>,
     pub camera: Option<Entity>,
+
     pub collision_world: CollideWorld,
+    ccd: TranslationalCCDMotionClamping,
     pub grid: Grid,
+
     pub tiles: Tiles,
     shapes: HashMap<PhysicsShape, CollisionData>,
     events: Vec<(Event, Entity)>,
@@ -96,6 +100,7 @@ impl World {
             player: None,
             camera: None,
             collision_world: collision_world,
+            ccd: TranslationalCCDMotionClamping::new(),
             grid: grid,
             tiles: Tiles::new(size, 0),
             shapes: shape_handles(),
@@ -187,6 +192,7 @@ impl World {
                                                   GeometricQueryType::Contacts(0.0, 0.0),
                                                   CollisionDataExtra::Entity(entity));
 
+            self.ccd.add_ccd_to(self.collision_world.collision_object(handle).unwrap(), 1.0, obj_pos);
             let mut phys = self.ecs.physics.get_mut_or_err(entity);
             phys.handle = Some(handle);
         }
@@ -262,6 +268,10 @@ impl World {
     }
 
     fn update_collision_world(&mut self) {
+        self.collision_world.perform_broad_phase();
+        if !self.ccd.update(&mut self.collision_world) {
+            self.collision_world.perform_narrow_phase();
+        }
         self.collision_world.update();
     }
 
@@ -353,4 +363,9 @@ pub enum Event {
     Hurt(i32),
     Destroy,
     Collide(Matrix3x1<f32>),
+}
+
+
+pub struct PhysicsWorld {
+    
 }

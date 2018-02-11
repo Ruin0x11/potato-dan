@@ -1,4 +1,5 @@
 pub mod toml;
+pub mod translational_ccd_motion_clamping;
 
 use std::time::Duration;
 
